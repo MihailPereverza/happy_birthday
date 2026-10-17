@@ -76,33 +76,27 @@ function RetakeCamera(props: { point: Point; replaces?: PhotoRecord; allMasks?: 
   const allowed = props.allMasks ? undefined : photoStep?.allowedMasks;
   const masks = allowed?.length ? quest.masks.filter((m) => allowed.includes(m.id)) : quest.masks;
   return (
-    <Modal onClose={props.onDone} wide>
-      <h2>{props.title ?? props.point.name}</h2>
-      <CameraView
-        masks={masks}
-        defaultMaskId={props.replaces?.maskId ?? photoStep?.defaultMask}
-        facing={photoStep?.facing}
-        asset={app.pack.asset}
-        onSave={async (blob, maskId) => {
-          await storePhoto({
-            packId: quest.id,
-            point: props.point,
-            stepId: props.replaces?.stepId ?? (props.allMasks ? 'photobooth' : photoStep?.id ?? 'retake'),
-            maskId,
-            blob,
-            autoDownload: autoDownloadEnabled(app),
-            replaces: props.replaces,
-          });
-          toast(t.camera.saved);
-          props.onDone();
-        }}
-        footer={
-          <Button kind="ghost" onClick={props.onDone}>
-            {t.cancel}
-          </Button>
-        }
-      />
-    </Modal>
+    <CameraView
+      masks={masks}
+      defaultMaskId={props.replaces?.maskId ?? photoStep?.defaultMask}
+      facing={photoStep?.facing}
+      asset={app.pack.asset}
+      title={props.title ?? props.point.name}
+      onClose={props.onDone}
+      onSave={async (blob, maskId) => {
+        await storePhoto({
+          packId: quest.id,
+          point: props.point,
+          stepId: props.replaces?.stepId ?? (props.allMasks ? 'photobooth' : photoStep?.id ?? 'retake'),
+          maskId,
+          blob,
+          autoDownload: autoDownloadEnabled(app),
+          replaces: props.replaces,
+        });
+        toast(t.camera.saved);
+        props.onDone();
+      }}
+    />
   );
 }
 

@@ -12,9 +12,9 @@ interface CakeBox {
   w: number;
 }
 
-const cakeBox = ({ W, H }: EffectEnv): CakeBox => {
-  const w = Math.min(W * 0.62, H * 0.42);
-  return { x: W / 2, bottom: H * 0.985, w };
+const cakeBox = ({ view, floorY }: EffectEnv): CakeBox => {
+  const w = Math.min(view.w * 0.58, (floorY - view.y) * 0.4);
+  return { x: view.x + view.w / 2, bottom: floorY - w * 0.04, w };
 };
 
 function candleTops(box: CakeBox, count: number) {
@@ -168,9 +168,9 @@ export function blowCandles(params: Record<string, unknown>): Effect {
       const size = box.w * 0.13;
       if (wishAt >= 0 && env.t - wishAt < 3.5) {
         const pop = Math.min(1, (env.t - wishAt) * 4);
-        outlinedText(ctx, wishText, env.W / 2, box.bottom - box.w * 0.95, size * (0.6 + 0.4 * pop), '#e91e63');
+        outlinedText(ctx, wishText, box.x, box.bottom - box.w * 0.95, size * (0.6 + 0.4 * pop), '#e91e63');
       } else if (lit.every(Boolean)) {
-        outlinedText(ctx, 'Задуй свечи! 🌬️', env.W / 2, box.bottom - box.w * 0.95, size * 0.8, '#8e24aa');
+        outlinedText(ctx, 'Задуй свечи! 🌬️', box.x, box.bottom - box.w * 0.95, size * 0.8, '#8e24aa');
       }
     },
   };

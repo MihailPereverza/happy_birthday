@@ -8,6 +8,10 @@ export interface EffectEnv {
   W: number;
   H: number;
   faces: FaceData[];
+  /** Part of the frame visible on screen (object-fit: cover crop); the saved photo is exactly this. */
+  view: { x: number; y: number; w: number; h: number };
+  /** Lowest y not hidden by the camera controls; things standing "on the floor" (cake, banner) go above it. */
+  floorY: number;
   /** The camera frame (after warping) before any overlay, drawn at 0,0,W,H. */
   base: () => CanvasImageSource;
 }

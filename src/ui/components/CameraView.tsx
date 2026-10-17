@@ -1,11 +1,24 @@
-import type { ComponentChildren } from 'preact';
+import { createPortal } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Mask } from '../../core/types';
-import { attachStream, openCamera, stopStream, type Facing } from '../../camera/camera';
+import {
+  attachStream,
+  formatZoom,
+  lensesFor,
+  openCamera,
+  setZoom,
+  stopStream,
+  zoomRange,
+  zoomStops,
+  type Facing,
+  type Lens,
+  type ZoomRange,
+} from '../../camera/camera';
 import { loadTracker, type FaceResult, type FaceTracker } from '../../camera/trackerLoader';
 import { isEffectMask, isFaceMask, isFrameMask } from '../../camera/maskRenderer';
 import {
   captureJpeg,
+  coverCrop,
   drawScene,
   frameEnv,
   layersNeedTracking,
@@ -18,13 +31,37 @@ import {
 } from '../../camera/capture';
 import { picksFromId, picksToId, togglePick, type Pick } from '../../camera/selection';
 import { EFFECTS } from '../../camera/effects/catalog';
-import { FaceSmoother } from '../../camera/effects/face';
+import { DetectionCrop, FaceSmoother } from '../../camera/effects/face';
 import type { EffectId } from '../../camera/effects/ids';
 import { Warper } from '../../camera/effects/warp';
-import { Button, useObjectUrl, useWakeLock } from './common';
+import { useObjectUrl, useWakeLock } from './common';
 import { t } from '../strings.ru';
 
 type CameraStatus = 'starting' | 'ready' | 'denied' | 'error';
+/** `full` shows the whole sensor frame (nothing cropped), `fill` covers the screen and crops like stories. */
+type ViewMode = 'full' | 'fill';
+
+const VIEW_MODE_KEY = 'hq-camera-view';
+const readViewMode = (): ViewMode => {
+  try {
+    return localStorage.getItem(VIEW_MODE_KEY) === 'fill' ? 'fill' : 'full';
+  } catch {
+    return 'full';
+  }
+};
+
+/** Height of an element, kept up to date (the bottom panel grows when the two-people switch appears). */
+function useHeight(ref: { current: HTMLElement | null }): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setHeight(el.getBoundingClientRect().height));
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+  return height;
+}
 type TrackerStatus = 'loading' | 'ready' | 'failed' | 'slow';
 
 const MIN_TRACKING_FPS = 15;
@@ -36,7 +73,9 @@ export interface CameraViewProps {
   facing?: Facing;
   asset: (path: string | undefined) => string | undefined;
   onSave: (photo: Blob, maskId: string | undefined) => Promise<void>;
-  footer?: ComponentChildren;
+  onClose: () => void;
+  /** Small caption in the top bar, e.g. the point name. */
+  title?: string;
 }
 
 function useMaskImages(masks: Mask[], asset: CameraViewProps['asset']) {
@@ -102,6 +141,13 @@ export function CameraView(props: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [facing, setFacing] = useState<Facing>(props.facing ?? 'user');
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
+  const [lenses, setLenses] = useState<Lens[]>([]);
+  const [zoomCaps, setZoomCaps] = useState<ZoomRange | null>(null);
+  const [zoom, setZoomValue] = useState(1);
+  const [viewMode, setViewMode] = useState<ViewMode>(readViewMode);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<CameraStatus>('starting');
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus>('loading');
   const [tracker, setTracker] = useState<FaceTracker | null>(null);
@@ -115,6 +161,9 @@ export function CameraView(props: CameraViewProps) {
   const facesRef = useRef<FaceResult[]>([]);
   const warperRef = useRef<Warper | null | undefined>(undefined);
   const sceneRef = useRef<Scene | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const topHeight = useHeight(topRef);
+  const bottomHeight = useHeight(bottomRef);
   // Effect instances keep their particles while other masks are toggled around them.
   const effectsRef = useRef(new Map<string, { effect: Layer['effect']; startedAt: number }>());
   useWakeLock(true);
@@ -176,19 +225,27 @@ export function CameraView(props: CameraViewProps) {
     let stream: MediaStream | null = null;
     let cancelled = false;
     setStatus('starting');
-    openCamera(facing)
+    openCamera(facing, deviceId)
       .then(async (s) => {
         stream = s;
         if (cancelled) return stopStream(s);
         await attachStream(videoRef.current!, s);
-        if (!cancelled) setStatus('ready');
+        if (cancelled) return;
+        const track = s.getVideoTracks()[0];
+        trackRef.current = track;
+        const caps = zoomRange(track);
+        setZoomCaps(caps);
+        setZoomValue((track.getSettings() as MediaTrackSettings & { zoom?: number }).zoom ?? 1);
+        // Labels are only readable once camera permission is granted, i.e. now.
+        lensesFor(facing).then((found) => !cancelled && setLenses(found)).catch(() => setLenses([]));
+        setStatus('ready');
       })
       .catch((e: DOMException) => !cancelled && setStatus(e?.name === 'NotAllowedError' ? 'denied' : 'error'));
     return () => {
       cancelled = true;
       stopStream(stream);
     };
-  }, [facing]);
+  }, [facing, deviceId]);
 
   useEffect(() => {
     if (status !== 'ready' || shot) return;
@@ -196,6 +253,7 @@ export function CameraView(props: CameraViewProps) {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     const faceSmoother = new FaceSmoother();
+    const detectionCrop = new DetectionCrop();
     const fps = new FpsGuard();
     const mirrored = facing === 'user';
     // Tracking also runs with no mask on, so the "left / right" switch knows when two people are in frame.
@@ -213,7 +271,8 @@ export function CameraView(props: CameraViewProps) {
         }
         if (tracking && video.currentTime !== lastVideoTime) {
           lastVideoTime = video.currentTime;
-          facesRef.current = faceSmoother.smooth(orderFaces(tracker!.detect(video), mirrored));
+          const detected = detectionCrop.toFrame(tracker!.detect(detectionCrop.source(video)), video.videoHeight);
+          facesRef.current = faceSmoother.smooth(orderFaces(detected, mirrored));
           if (import.meta.env.DEV) facesRef.current = withDevExpression(facesRef.current);
           if (facesRef.current.length !== lastCount) {
             lastCount = facesRef.current.length;
@@ -223,7 +282,17 @@ export function CameraView(props: CameraViewProps) {
         const now = performance.now();
         const dt = Math.min(0.1, (now - lastFrame) / 1000);
         lastFrame = now;
-        const scene: Scene = { video, mirrored, faces: tracking ? facesRef.current : [], layers, now, warper: warperRef.current ?? null };
+        const box = canvas.getBoundingClientRect();
+        const W = video.videoWidth;
+        const H = video.videoHeight;
+        let view = { x: 0, y: 0, w: W, h: H };
+        let floorY = H * 0.98;
+        if (viewMode === 'fill') {
+          view = coverCrop(W, H, box.width / box.height);
+          const panelTop = bottomRef.current?.getBoundingClientRect().top ?? box.bottom;
+          floorY = view.y + view.h * Math.min(0.98, Math.max(0.4, (panelTop - box.top) / box.height));
+        }
+        const scene: Scene = { video, mirrored, faces: tracking ? facesRef.current : [], layers, now, warper: warperRef.current ?? null, view, floorY };
         sceneRef.current = scene;
         const frame = frameEnv(scene, ctx);
         updateEffects(scene, frame, dt);
@@ -234,12 +303,39 @@ export function CameraView(props: CameraViewProps) {
     };
     raf = requestAnimationFrame(render);
     return () => cancelAnimationFrame(raf);
-  }, [status, shot, layers, tracker, facing]);
+  }, [status, shot, layers, tracker, facing, viewMode]);
+
+  const chooseZoom = async (z: number) => {
+    if (!trackRef.current) return;
+    setZoomValue(z);
+    await setZoom(trackRef.current, z).catch(() => undefined);
+  };
+  const toggleViewMode = () => {
+    const next: ViewMode = viewMode === 'full' ? 'fill' : 'full';
+    setViewMode(next);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, next);
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+  };
+  const flip = () => {
+    setDeviceId(undefined);
+    setLenses([]);
+    setFacing((f) => (f === 'user' ? 'environment' : 'user'));
+  };
+  // A canvas has its own aspect ratio, so top/bottom alone don't size it; the height is spelled out.
+  const stageStyle =
+    viewMode === 'full' ? { top: `${topHeight}px`, height: `calc(100% - ${topHeight + bottomHeight}px)` } : undefined;
+  const stops = zoomCaps ? zoomStops(zoomCaps) : [];
+  const showLenses = !zoomCaps && lenses.length > 1;
 
   const takeShot = async () => {
-    if (!sceneRef.current) return;
+    const scene = sceneRef.current;
+    if (!scene) return;
     navigator.vibrate?.(30);
-    setShot(await captureJpeg(sceneRef.current));
+    // The preview is object-fit: cover; the saved photo is exactly the visible part.
+    setShot(await captureJpeg(scene, scene.view));
   };
 
   const save = async () => {
@@ -262,20 +358,28 @@ export function CameraView(props: CameraViewProps) {
   const hint = lastEffect && isEffectMask(lastEffect) ? lastEffect.hint : undefined;
   const twoPeople = faceCount >= 2 || target !== 'all';
 
-  return (
-    <div class="camera">
-      <div class="camera-stage">
-        <video ref={videoRef} class="camera-video" muted playsInline />
-        <canvas ref={canvasRef} class="camera-canvas" hidden={!!shot} />
-        {shot && shotUrl && <img class="camera-shot" src={shotUrl} alt="" />}
-        {status === 'starting' && <p class="camera-msg">{t.camera.starting}</p>}
-        {status === 'denied' && <p class="camera-msg error">{t.camera.denied}</p>}
-        {status === 'error' && <p class="camera-msg error">{t.camera.error}</p>}
-        {hint && !shot && <p class="camera-hint">{hint}</p>}
-        {trackerNote && !shot && <p class="camera-note">{trackerNote}</p>}
+  return createPortal(
+    <div class="cam" role="dialog" aria-label={t.camera.shoot}>
+      <video ref={videoRef} class="cam-video" muted playsInline />
+      <canvas ref={canvasRef} class={`cam-canvas ${viewMode}`} style={stageStyle} hidden={!!shot} />
+      {shot && shotUrl && <img class={`cam-canvas ${viewMode}`} style={stageStyle} src={shotUrl} alt="" />}
+      {status === 'starting' && <p class="cam-msg">{t.camera.starting}</p>}
+      {status === 'denied' && <p class="cam-msg">{t.camera.denied}</p>}
+      {status === 'error' && <p class="cam-msg">{t.camera.error}</p>}
+
+      <div class={`cam-top ${viewMode}`} ref={topRef}>
+        <button type="button" class="cam-round" aria-label={t.close} onClick={props.onClose} disabled={saving}>
+          ✕
+        </button>
+        <div class="cam-top-center">
+          {props.title && <p class="cam-title">{props.title}</p>}
+          {hint && !shot && <p class="cam-hint">{hint}</p>}
+          {trackerNote && !shot && <p class="cam-note">{trackerNote}</p>}
+        </div>
       </div>
+
       {!shot && (
-        <>
+        <div class={`cam-bottom ${viewMode}`} ref={bottomRef}>
           {twoPeople && (
             <div class="target-switch" role="radiogroup" aria-label={t.camera.whoFor}>
               {TARGETS.map((tg) => (
@@ -295,7 +399,7 @@ export function CameraView(props: CameraViewProps) {
           <div class="mask-strip">
             <button type="button" class={`mask-item ${!picks.length ? 'active' : ''}`} onClick={() => setPicks([])}>
               <span class="mask-icon">∅</span>
-              <small>{picks.length ? t.camera.clearAll : t.camera.noMask}</small>
+              <small>{picks.length > 1 ? t.camera.layers(picks.length) : picks.length ? t.camera.clearAll : t.camera.noMask}</small>
             </button>
             {props.masks.map((m) => {
               const on = picks.filter((p) => p.maskId === m.id);
@@ -305,7 +409,7 @@ export function CameraView(props: CameraViewProps) {
                   type="button"
                   disabled={frameMode && needsFaces(m)}
                   aria-pressed={on.length > 0}
-                  class={`mask-item ${on.length ? 'active' : ''} ${isEffectMask(m) ? 'effect' : ''}`}
+                  class={`mask-item ${on.length ? 'active' : ''}`}
                   onClick={() => setPicks((current) => togglePick(current, m, target, props.masks))}
                 >
                   {on.length > 0 && <span class="mask-badge">{on.map((p) => TARGET_BADGE[p.target]).join('')}</span>}
@@ -315,26 +419,61 @@ export function CameraView(props: CameraViewProps) {
               );
             })}
           </div>
-          <div class="camera-controls">
-            <Button kind="secondary" onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))}>
-              🔄
-            </Button>
+          {(stops.length > 1 || showLenses) && (
+            <div class="lens-row" role="radiogroup" aria-label={t.camera.lens}>
+              {stops.map((z) => (
+                <button
+                  key={z}
+                  type="button"
+                  role="radio"
+                  aria-checked={Math.abs(zoom - z) < 0.05}
+                  class={`lens-btn ${Math.abs(zoom - z) < 0.05 ? 'active' : ''}`}
+                  onClick={() => chooseZoom(z)}
+                >
+                  {formatZoom(z)}
+                </button>
+              ))}
+              {showLenses &&
+                lenses.map((lens, i) => {
+                  const active = deviceId ? deviceId === lens.deviceId : i === 0;
+                  return (
+                    <button
+                      key={lens.deviceId}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      class={`lens-btn ${active ? 'active' : ''}`}
+                      onClick={() => setDeviceId(lens.deviceId)}
+                    >
+                      📷{lens.label}
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+          <div class="cam-controls">
+            <button type="button" class="cam-round cam-mode" aria-label={viewMode === 'full' ? t.camera.fillScreen : t.camera.wholeFrame} onClick={toggleViewMode}>
+              {viewMode === 'full' ? '⛶' : '▣'}
+              <small>{viewMode === 'full' ? t.camera.fillScreenShort : t.camera.wholeFrameShort}</small>
+            </button>
             <button type="button" class="shutter" aria-label={t.camera.shoot} disabled={status !== 'ready'} onClick={takeShot} />
-            <span class="camera-spacer muted">{picks.length > 1 ? t.camera.layers(picks.length) : ''}</span>
+            <button type="button" class="cam-round" aria-label={t.camera.switch} onClick={flip}>
+              🔄
+            </button>
           </div>
-        </>
-      )}
-      {shot && (
-        <div class="row">
-          <Button kind="secondary" onClick={() => setShot(null)} disabled={saving}>
-            {t.camera.retake}
-          </Button>
-          <Button onClick={save} disabled={saving}>
-            {t.camera.save}
-          </Button>
         </div>
       )}
-      {props.footer}
-    </div>
+      {shot && (
+        <div class={`cam-bottom cam-review ${viewMode}`} ref={bottomRef}>
+          <button type="button" class="btn secondary" onClick={() => setShot(null)} disabled={saving}>
+            {t.camera.retake}
+          </button>
+          <button type="button" class="btn primary" onClick={save} disabled={saving}>
+            {t.camera.save}
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body,
   );
 }

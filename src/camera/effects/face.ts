@@ -113,3 +113,40 @@ export class FaceSmoother {
     return out;
   }
 }
+
+/**
+ * MediaPipe squeezes the whole frame into a small square for detection, so faces in a tall full-sensor frame
+ * get tiny. Detecting on a square band around the middle (where faces are) makes them ~1/3 bigger for it.
+ */
+export class DetectionCrop {
+  private canvas: HTMLCanvasElement | null = null;
+  private y = 0;
+  private h = 0;
+
+  source(video: HTMLVideoElement): HTMLVideoElement | HTMLCanvasElement {
+    const W = video.videoWidth;
+    const H = video.videoHeight;
+    if (H <= W * 1.05) {
+      this.h = 0;
+      return video;
+    }
+    this.h = W;
+    this.y = Math.round((H - W) * 0.4);
+    this.canvas ??= document.createElement('canvas');
+    if (this.canvas.width !== W || this.canvas.height !== W) {
+      this.canvas.width = W;
+      this.canvas.height = W;
+    }
+    this.canvas.getContext('2d')!.drawImage(video, 0, this.y, W, W, 0, 0, W, W);
+    return this.canvas;
+  }
+
+  /** Maps landmarks from the band back to whole-frame coordinates. */
+  toFrame(faces: FaceResult[], frameHeight: number): FaceResult[] {
+    if (!this.h) return faces;
+    return faces.map((f) => ({
+      ...f,
+      landmarks: f.landmarks.map((p) => ({ ...p, y: (p.y * this.h + this.y) / frameHeight })),
+    }));
+  }
+}

@@ -20,18 +20,18 @@ async function create(delegate: 'GPU' | 'CPU'): Promise<FaceLandmarker> {
 }
 
 export interface FaceTracker {
-  detect(video: HTMLVideoElement): FaceResult[];
+  detect(source: HTMLVideoElement | HTMLCanvasElement): FaceResult[];
 }
 
 let lastTimestamp = 0;
 
 function wrap(landmarker: FaceLandmarker): FaceTracker {
   return {
-    detect(video) {
+    detect(source) {
       // detectForVideo requires strictly increasing timestamps.
       const now = Math.max(performance.now(), lastTimestamp + 1);
       lastTimestamp = now;
-      const result = landmarker.detectForVideo(video, now);
+      const result = landmarker.detectForVideo(source, now);
       return (result.faceLandmarks ?? []).map((landmarks, i) => ({
         landmarks,
         blend: blendFrom(result.faceBlendshapes?.[i]?.categories),

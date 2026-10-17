@@ -58,7 +58,8 @@ export function faceSwap(): Effect {
     draw(ctx, env) {
       const [a, b] = env.faces;
       if (!a || !b) {
-        outlinedText(ctx, 'Нужны двое в кадре 👯', env.W / 2, env.H * 0.12, Math.min(env.W, env.H) * 0.07, '#8e24aa');
+        const { view } = env;
+        outlinedText(ctx, 'Нужны двое в кадре 👯', view.x + view.w / 2, view.y + view.h * 0.25, Math.min(view.w * 0.08, view.h * 0.05), '#8e24aa');
         return;
       }
       env.base();
@@ -74,9 +75,9 @@ export function faceBalloons(): Effect {
   const colors = ['#ff4081', '#ffd54f', '#40c4ff', '#69f0ae', '#b388ff', '#ff6e40'];
   return {
     draw(ctx, env) {
-      const { W, H, t } = env;
+      const { W, H, t, view } = env;
       const f = env.faces[0];
-      const r = Math.min(W, H) * 0.1;
+      const r = Math.min(view.w, view.h) * 0.12;
       let face: HTMLCanvasElement | null = null;
       if (f) {
         const size = f.faceHeight * 1.3;
@@ -94,8 +95,8 @@ export function faceBalloons(): Effect {
       }
       colors.forEach((color, i) => {
         const phase = (t * 0.09 + i / colors.length) % 1;
-        const x = W * (0.1 + (0.8 * ((i * 0.37) % 1))) + Math.sin(t * 1.2 + i) * W * 0.03;
-        const y = H * 1.15 - phase * H * 1.45;
+        const x = view.x + view.w * (0.12 + 0.76 * ((i * 0.37) % 1)) + Math.sin(t * 1.2 + i) * view.w * 0.03;
+        const y = view.y + view.h * 1.15 - phase * view.h * 1.45;
         balloon(ctx, x, y, r, color, r * 2.5, t + i);
         if (!face) return;
         ctx.save();

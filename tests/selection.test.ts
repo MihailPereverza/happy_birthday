@@ -62,3 +62,19 @@ it('maps targets to on-screen faces', () => {
   expect(facesFor(['only'], 'right')).toEqual([]);
   expect(facesFor(['L', 'R'], 'all')).toEqual(['L', 'R']);
 });
+
+it('crops a portrait camera frame to what a tall phone screen shows', async () => {
+  const { coverCrop } = await import('../src/camera/capture');
+  expect(coverCrop(1080, 1920, 412 / 915)).toEqual({ x: (1080 - 1920 * (412 / 915)) / 2, y: 0, w: 1920 * (412 / 915), h: 1920 });
+  const wide = coverCrop(1920, 1080, 1);
+  expect(wide).toEqual({ x: 420, y: 0, w: 1080, h: 1080 });
+  expect(coverCrop(1080, 1920, 1080 / 1920)).toEqual({ x: 0, y: 0, w: 1080, h: 1920 });
+});
+
+it('offers system-camera zoom stops within the track range', async () => {
+  const { zoomStops, formatZoom } = await import('../src/camera/camera');
+  expect(zoomStops({ min: 0.5, max: 8 })).toEqual([0.5, 1, 2, 5]);
+  expect(zoomStops({ min: 1, max: 3 })).toEqual([1, 2]);
+  expect(formatZoom(0.5)).toBe('0.5×');
+  expect(formatZoom(2)).toBe('2×');
+});

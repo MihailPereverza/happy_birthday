@@ -7,6 +7,13 @@ import { drawCover, drawPlacement, isEffectMask, isFaceMask, isFrameMask, placeM
 export const CAPTURE_LONG_SIDE = 2048;
 export const JPEG_QUALITY = 0.9;
 
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** Who a layer is for when two people are in frame; faces are ordered left → right as seen on screen. */
 export type Target = 'all' | 'left' | 'right';
 
@@ -29,6 +36,9 @@ export interface Scene {
   /** performance.now() of this frame; effects get their own clock from it. */
   now: number;
   warper: Warper | null;
+  /** Visible crop of the frame and the top of the on-screen controls, in camera pixels. */
+  view?: Rect;
+  floorY?: number;
 }
 
 const aspectOf = (img: HTMLImageElement): number => (img.naturalHeight || 1) / (img.naturalWidth || 1);
@@ -63,12 +73,22 @@ export interface FrameEnv {
   H: number;
   faces: FaceData[];
   base: () => CanvasImageSource;
+  view: Rect;
+  floorY: number;
 }
 
 export function frameEnv(scene: Scene, ctx: CanvasRenderingContext2D): FrameEnv {
   const W = scene.video.videoWidth;
   const H = scene.video.videoHeight;
-  return { W, H, faces: scene.faces.map((f) => buildFace(f, W, H, scene.mirrored)), base: baseSnapshot(ctx) };
+  const view = scene.view ?? { x: 0, y: 0, w: W, h: H };
+  return {
+    W,
+    H,
+    faces: scene.faces.map((f) => buildFace(f, W, H, scene.mirrored)),
+    base: baseSnapshot(ctx),
+    view,
+    floorY: scene.floorY ?? view.y + view.h * 0.98,
+  };
 }
 
 export function layerEnv(layer: Layer, frame: FrameEnv, now: number): EffectEnv {
@@ -113,18 +133,37 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene, frame: Fr
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-/** Final shot: JPEG with the long side scaled to 2048 px, all layers baked in. */
-export function captureJpeg(scene: Scene): Promise<Blob> {
-  const { videoWidth: vw, videoHeight: vh } = scene.video;
-  const scale = CAPTURE_LONG_SIDE / Math.max(vw, vh);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(vw * scale);
-  canvas.height = Math.round(vh * scale);
-  const ctx = canvas.getContext('2d')!;
-  ctx.imageSmoothingQuality = 'high';
-  drawScene(ctx, scene, frameEnv(scene, ctx));
+/** The part of a W×H frame that an object-fit: cover box of the given aspect shows. */
+export function coverCrop(W: number, H: number, boxAspect: number): Rect {
+  if (!Number.isFinite(boxAspect) || boxAspect <= 0) return { x: 0, y: 0, w: W, h: H };
+  if (W / H > boxAspect) {
+    const w = H * boxAspect;
+    return { x: (W - w) / 2, y: 0, w, h: H };
+  }
+  const h = W / boxAspect;
+  return { x: 0, y: (H - h) / 2, w: W, h };
+}
+
+// Never upscale the camera frame more than this when the visible crop is small.
+const MAX_UPSCALE = 2;
+
+/** Final shot of exactly what the screen shows (`crop`), long side up to 2048 px, all layers baked in. */
+export function captureJpeg(scene: Scene, crop?: Rect): Promise<Blob> {
+  const { videoWidth: W, videoHeight: H } = scene.video;
+  const area = crop ?? { x: 0, y: 0, w: W, h: H };
+  const k = Math.min(CAPTURE_LONG_SIDE / Math.max(area.w, area.h), MAX_UPSCALE);
+  const full = document.createElement('canvas');
+  full.width = Math.round(W * k);
+  full.height = Math.round(H * k);
+  const fullCtx = full.getContext('2d')!;
+  fullCtx.imageSmoothingQuality = 'high';
+  drawScene(fullCtx, scene, frameEnv(scene, fullCtx));
+  const out = document.createElement('canvas');
+  out.width = Math.round(area.w * k);
+  out.height = Math.round(area.h * k);
+  out.getContext('2d')!.drawImage(full, area.x * k, area.y * k, out.width, out.height, 0, 0, out.width, out.height);
   return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', JPEG_QUALITY),
+    out.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', JPEG_QUALITY),
   );
 }
 

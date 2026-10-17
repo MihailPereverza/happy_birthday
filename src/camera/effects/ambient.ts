@@ -37,18 +37,19 @@ export function fireworks(): Effect {
   const sparks = new Particles(1500);
   let nextLaunch = 0;
   return {
-    update({ W, H, t }, dt) {
+    update({ H, t, view, floorY }, dt) {
       if (t >= nextLaunch) {
         nextLaunch = t + rand(0.45, 0.9);
-        const x = rand(0.12, 0.88) * W;
-        rockets.add({ x, y: H, vx: rand(-0.05, 0.05) * W, vy: -H * rand(1.05, 1.3), maxLife: rand(0.6, 0.8), size: Math.min(W, H) * 0.01, color: pick(PARTY), kind: 'rocket' });
+        const x = view.x + rand(0.12, 0.88) * view.w;
+        const rise = floorY - view.y;
+        rockets.add({ x, y: floorY, vx: rand(-0.05, 0.05) * view.w, vy: -rise * rand(1.15, 1.45), maxLife: rand(0.6, 0.8), size: Math.min(view.w, view.h) * 0.012, color: pick(PARTY), kind: 'rocket' });
       }
       for (const r of rockets.items) {
         sparks.add({ x: r.x, y: r.y, vx: rand(-1, 1) * 20, vy: rand(0, 40), maxLife: 0.35, size: r.size, color: '#ffe082', kind: 'trail' });
         if (r.life + dt >= r.maxLife) {
           const color = pick(PARTY);
           const n = 90;
-          const speed = Math.min(W, H) * rand(0.45, 0.7);
+          const speed = Math.min(view.w, view.h) * rand(0.45, 0.7);
           for (let k = 0; k < n; k += 1) {
             const a = (k / n) * Math.PI * 2;
             const s = speed * rand(0.7, 1);
@@ -105,19 +106,21 @@ export function ageBalloons(params: Record<string, unknown>): Effect {
   const text = String(params.text ?? params.age ?? '18');
   const banner = params.banner === undefined ? 'С днём рождения!' : String(params.banner);
   return {
-    draw(ctx, { faces, t, W, H }) {
+    draw(ctx, { faces, t, H, view, floorY }) {
       const f = faces[0];
-      const size = Math.min(W, H) * 0.32;
+      const size = Math.min(view.w, view.h) * 0.3;
       const digits = [...text];
       const totalW = size * 0.62 * digits.length;
-      let baseX = W * 0.72;
-      let baseY = H * 0.3;
+      const minX = view.x + totalW / 2;
+      const maxX = view.x + view.w - totalW / 2;
+      let baseX = view.x + view.w * 0.72;
+      let baseY = view.y + view.h * 0.32;
       if (f) {
-        const side = f.forehead.x < W / 2 ? 1 : -1;
+        const side = f.forehead.x < view.x + view.w / 2 ? 1 : -1;
         baseX = f.forehead.x + side * (f.eyeDist * 1.6 + totalW / 2);
-        baseY = f.forehead.y + f.eyeDist * 0.4;
-        baseX = Math.min(W - totalW / 2, Math.max(totalW / 2, baseX));
+        baseY = Math.max(view.y + view.h * 0.22, f.forehead.y + f.eyeDist * 0.4);
       }
+      baseX = Math.min(maxX, Math.max(minX, baseX));
       ctx.save();
       digits.forEach((d, i) => {
         const x = baseX - totalW / 2 + size * 0.62 * (i + 0.5);
@@ -147,12 +150,13 @@ export function ageBalloons(params: Record<string, unknown>): Effect {
         ctx.fillText(d, 0, 0);
         ctx.restore();
       });
-      const small = Math.min(W, H) * 0.06;
-      const otherX = f ? Math.min(W - small * 2, Math.max(small * 2, 2 * (f.forehead.x) - baseX)) : W * 0.2;
+      const small = Math.min(view.w, view.h) * 0.065;
+      const otherX = Math.min(view.x + view.w - small * 2, Math.max(view.x + small * 2, f ? 2 * f.forehead.x - baseX : view.x + view.w * 0.2));
       ['#ff4081', '#40c4ff', '#7c4dff'].forEach((c, i) => {
         balloon(ctx, otherX + (i - 1) * small * 1.6, baseY - small + Math.sin(t * 1.8 + i * 2) * small * 0.3 + (i % 2) * small, small, c, H * 0.5, t + i);
       });
-      if (banner) outlinedText(ctx, banner, W / 2, H * 0.92, Math.min(W, H) * 0.09, '#e91e63');
+      const bannerSize = Math.min(view.w * 0.11, view.h * 0.07);
+      if (banner) outlinedText(ctx, banner, view.x + view.w / 2, floorY - bannerSize * 0.9, bannerSize, '#e91e63');
       ctx.restore();
     },
   };
@@ -168,12 +172,12 @@ export function disco(): Effect {
       }
       sparkles.step(dt);
     },
-    draw(ctx, { W, H, t }) {
+    draw(ctx, { W, H, t, view }) {
       ctx.save();
       ctx.globalCompositeOperation = 'soft-light';
       ctx.fillStyle = `hsl(${(t * 90) % 360}, 100%, 55%)`;
       ctx.fillRect(0, 0, W, H);
-      const ball = { x: W / 2, y: H * 0.11, r: Math.min(W, H) * 0.09 };
+      const ball = { x: view.x + view.w / 2, y: view.y + view.h * 0.2, r: Math.min(view.w, view.h) * 0.11 };
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 7; i += 1) {
         const a = Math.PI / 2 + Math.sin(t * 0.9 + i * 1.3) * 1.1;
