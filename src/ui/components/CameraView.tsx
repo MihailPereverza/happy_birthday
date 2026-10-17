@@ -3,12 +3,23 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Mask } from '../../core/types';
 import { attachStream, openCamera, stopStream, type Facing } from '../../camera/camera';
 import { loadTracker, type FaceResult, type FaceTracker } from '../../camera/trackerLoader';
-import { isEffectMask, isFaceMask, isFrameMask, PoseSmoother } from '../../camera/maskRenderer';
-import { captureJpeg, drawScene, effectEnv, facePlacements, loadImage, type Scene } from '../../camera/capture';
+import { isEffectMask, isFaceMask, isFrameMask } from '../../camera/maskRenderer';
+import {
+  captureJpeg,
+  drawScene,
+  frameEnv,
+  layersNeedTracking,
+  loadImage,
+  orderFaces,
+  updateEffects,
+  type Layer,
+  type Scene,
+  type Target,
+} from '../../camera/capture';
+import { picksFromId, picksToId, togglePick, type Pick } from '../../camera/selection';
 import { EFFECTS } from '../../camera/effects/catalog';
 import { FaceSmoother } from '../../camera/effects/face';
 import type { EffectId } from '../../camera/effects/ids';
-import type { Effect } from '../../camera/effects/types';
 import { Warper } from '../../camera/effects/warp';
 import { Button, useObjectUrl, useWakeLock } from './common';
 import { t } from '../strings.ru';
@@ -75,6 +86,13 @@ function withDevExpression(faces: FaceResult[]): FaceResult[] {
 const needsFaces = (mask: Mask): boolean =>
   isFaceMask(mask) || (isEffectMask(mask) && (EFFECTS[mask.effect as EffectId]?.needsFaces ?? true));
 
+const TARGETS: { id: Target; icon: string; label: string }[] = [
+  { id: 'all', icon: '👯', label: t.camera.forAll },
+  { id: 'left', icon: '👈', label: t.camera.forLeft },
+  { id: 'right', icon: '👉', label: t.camera.forRight },
+];
+const TARGET_BADGE: Record<Target, string> = { all: '✓', left: '👈', right: '👉' };
+
 function MaskThumb({ mask, asset }: { mask: Mask; asset: CameraViewProps['asset'] }) {
   if (mask.src) return <img src={asset(mask.src)} alt="" />;
   return <span class="mask-icon">{isEffectMask(mask) ? mask.icon ?? '✨' : '🎭'}</span>;
@@ -87,7 +105,9 @@ export function CameraView(props: CameraViewProps) {
   const [status, setStatus] = useState<CameraStatus>('starting');
   const [trackerStatus, setTrackerStatus] = useState<TrackerStatus>('loading');
   const [tracker, setTracker] = useState<FaceTracker | null>(null);
-  const [maskId, setMaskId] = useState<string | undefined>(props.defaultMaskId);
+  const [picks, setPicks] = useState<Pick[]>(() => picksFromId(props.defaultMaskId, props.masks));
+  const [target, setTarget] = useState<Target>('all');
+  const [faceCount, setFaceCount] = useState(0);
   const [shot, setShot] = useState<Blob | null>(null);
   const [saving, setSaving] = useState(false);
   const images = useMaskImages(props.masks, props.asset);
@@ -95,6 +115,8 @@ export function CameraView(props: CameraViewProps) {
   const facesRef = useRef<FaceResult[]>([]);
   const warperRef = useRef<Warper | null | undefined>(undefined);
   const sceneRef = useRef<Scene | null>(null);
+  // Effect instances keep their particles while other masks are toggled around them.
+  const effectsRef = useRef(new Map<string, { effect: Layer['effect']; startedAt: number }>());
   useWakeLock(true);
   useEffect(() => {
     document.body.classList.add('camera-open');
@@ -102,17 +124,33 @@ export function CameraView(props: CameraViewProps) {
   }, []);
 
   const frameMode = trackerStatus === 'failed' || trackerStatus === 'slow';
-  const selected = props.masks.find((m) => m.id === maskId);
-  const usable = selected && (!frameMode || !needsFaces(selected)) ? selected : undefined;
-  const layer = useMemo(() => {
-    const image = usable && !isEffectMask(usable) ? images.get(usable.id) : undefined;
-    return usable && image ? { mask: usable, image } : null;
-  }, [usable, images]);
-  const effect = useMemo<{ instance: Effect; startedAt: number } | null>(() => {
-    if (!usable || !isEffectMask(usable)) return null;
-    const spec = EFFECTS[usable.effect as EffectId];
-    return spec ? { instance: spec.create(usable.params ?? {}), startedAt: performance.now() } : null;
-  }, [usable]);
+  const activePicks = picks.filter((p) => {
+    const mask = props.masks.find((m) => m.id === p.maskId);
+    return mask && (!frameMode || !needsFaces(mask));
+  });
+
+  const layers = useMemo<Layer[]>(() => {
+    const live = new Set<string>();
+    const result = activePicks.flatMap((pick): Layer[] => {
+      const mask = props.masks.find((m) => m.id === pick.maskId)!;
+      const key = `${pick.maskId}@${pick.target}`;
+      if (!isEffectMask(mask)) {
+        const image = images.get(mask.id);
+        return image ? [{ key, mask, target: pick.target, image }] : [];
+      }
+      const spec = EFFECTS[mask.effect as EffectId];
+      if (!spec) return [];
+      live.add(key);
+      let entry = effectsRef.current.get(key);
+      if (!entry) {
+        entry = { effect: spec.create(mask.params ?? {}), startedAt: performance.now() };
+        effectsRef.current.set(key, entry);
+      }
+      return [{ key, mask, target: pick.target, effect: entry.effect, startedAt: entry.startedAt }];
+    });
+    for (const key of [...effectsRef.current.keys()]) if (!live.has(key)) effectsRef.current.delete(key);
+    return result;
+  }, [picksToId(activePicks), images]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,8 +167,9 @@ export function CameraView(props: CameraViewProps) {
   }, []);
 
   useEffect(() => {
-    // Falling back to frames: switch a face mask/effect to the first frame so the shot still has decoration.
-    if (frameMode && selected && needsFaces(selected)) setMaskId(props.masks.find(isFrameMask)?.id);
+    // Falling back to frames: if nothing usable is left, put on the first frame so the shot still has decoration.
+    const firstFrame = props.masks.find(isFrameMask);
+    if (frameMode && picks.length && !activePicks.length && firstFrame) setPicks([{ maskId: firstFrame.id, target: 'all' }]);
   }, [frameMode]);
 
   useEffect(() => {
@@ -156,13 +195,15 @@ export function CameraView(props: CameraViewProps) {
     const video = videoRef.current!;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
-    const poseSmoother = new PoseSmoother();
     const faceSmoother = new FaceSmoother();
     const fps = new FpsGuard();
-    const tracking = !!tracker && !!usable && (isFaceMask(usable) || isEffectMask(usable));
-    if (effect?.instance.warp && warperRef.current === undefined) warperRef.current = Warper.create();
+    const mirrored = facing === 'user';
+    // Tracking also runs with no mask on, so the "left / right" switch knows when two people are in frame.
+    const tracking = !!tracker;
+    if (layers.some((l) => l.effect?.warp) && warperRef.current === undefined) warperRef.current = Warper.create();
     let lastVideoTime = -1;
     let lastFrame = performance.now();
+    let lastCount = -1;
     let raf = 0;
     const render = () => {
       if (video.readyState >= 2 && video.videoWidth) {
@@ -172,32 +213,28 @@ export function CameraView(props: CameraViewProps) {
         }
         if (tracking && video.currentTime !== lastVideoTime) {
           lastVideoTime = video.currentTime;
-          facesRef.current = faceSmoother.smooth(tracker!.detect(video));
+          facesRef.current = faceSmoother.smooth(orderFaces(tracker!.detect(video), mirrored));
           if (import.meta.env.DEV) facesRef.current = withDevExpression(facesRef.current);
+          if (facesRef.current.length !== lastCount) {
+            lastCount = facesRef.current.length;
+            setFaceCount(lastCount);
+          }
         }
         const now = performance.now();
         const dt = Math.min(0.1, (now - lastFrame) / 1000);
         lastFrame = now;
-        const scene: Scene = {
-          video,
-          mirrored: facing === 'user',
-          faces: tracking ? facesRef.current : [],
-          layer,
-          effect: effect?.instance ?? null,
-          t: effect ? (now - effect.startedAt) / 1000 : 0,
-          warper: warperRef.current ?? null,
-        };
+        const scene: Scene = { video, mirrored, faces: tracking ? facesRef.current : [], layers, now, warper: warperRef.current ?? null };
         sceneRef.current = scene;
-        const env = effectEnv(scene, ctx);
-        effect?.instance.update?.(env, dt);
-        drawScene(ctx, scene, env, poseSmoother.smooth(facePlacements(scene)));
-        if (fps.tick(tracking)) setTrackerStatus('slow');
+        const frame = frameEnv(scene, ctx);
+        updateEffects(scene, frame, dt);
+        drawScene(ctx, scene, frame);
+        if (fps.tick(tracking && layersNeedTracking(layers))) setTrackerStatus('slow');
       }
       raf = requestAnimationFrame(render);
     };
     raf = requestAnimationFrame(render);
     return () => cancelAnimationFrame(raf);
-  }, [status, shot, layer, effect, tracker, facing]);
+  }, [status, shot, layers, tracker, facing]);
 
   const takeShot = async () => {
     if (!sceneRef.current) return;
@@ -208,7 +245,7 @@ export function CameraView(props: CameraViewProps) {
   const save = async () => {
     if (!shot) return;
     setSaving(true);
-    await props.onSave(shot, usable?.id);
+    await props.onSave(shot, picksToId(activePicks));
     setSaving(false);
     setShot(null);
   };
@@ -218,7 +255,12 @@ export function CameraView(props: CameraViewProps) {
     : trackerStatus === 'failed' ? t.camera.frameMode
     : trackerStatus === 'slow' ? t.camera.slowFrameMode
     : null;
-  const hint = usable && isEffectMask(usable) ? usable.hint : undefined;
+  const lastEffect = [...activePicks]
+    .reverse()
+    .map((p) => props.masks.find((m) => m.id === p.maskId))
+    .find((m) => m && isEffectMask(m) && m.hint);
+  const hint = lastEffect && isEffectMask(lastEffect) ? lastEffect.hint : undefined;
+  const twoPeople = faceCount >= 2 || target !== 'all';
 
   return (
     <div class="camera">
@@ -234,30 +276,51 @@ export function CameraView(props: CameraViewProps) {
       </div>
       {!shot && (
         <>
+          {twoPeople && (
+            <div class="target-switch" role="radiogroup" aria-label={t.camera.whoFor}>
+              {TARGETS.map((tg) => (
+                <button
+                  key={tg.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={target === tg.id}
+                  class={`target-btn ${target === tg.id ? 'active' : ''}`}
+                  onClick={() => setTarget(tg.id)}
+                >
+                  {tg.icon} {tg.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div class="mask-strip">
-            <button type="button" class={`mask-item ${!maskId ? 'active' : ''}`} onClick={() => setMaskId(undefined)}>
+            <button type="button" class={`mask-item ${!picks.length ? 'active' : ''}`} onClick={() => setPicks([])}>
               <span class="mask-icon">∅</span>
-              <small>{t.camera.noMask}</small>
+              <small>{picks.length ? t.camera.clearAll : t.camera.noMask}</small>
             </button>
-            {props.masks.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                disabled={frameMode && needsFaces(m)}
-                class={`mask-item ${m.id === maskId ? 'active' : ''} ${isEffectMask(m) ? 'effect' : ''}`}
-                onClick={() => setMaskId(m.id)}
-              >
-                <MaskThumb mask={m} asset={props.asset} />
-                <small>{m.title ?? m.id}</small>
-              </button>
-            ))}
+            {props.masks.map((m) => {
+              const on = picks.filter((p) => p.maskId === m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  disabled={frameMode && needsFaces(m)}
+                  aria-pressed={on.length > 0}
+                  class={`mask-item ${on.length ? 'active' : ''} ${isEffectMask(m) ? 'effect' : ''}`}
+                  onClick={() => setPicks((current) => togglePick(current, m, target, props.masks))}
+                >
+                  {on.length > 0 && <span class="mask-badge">{on.map((p) => TARGET_BADGE[p.target]).join('')}</span>}
+                  <MaskThumb mask={m} asset={props.asset} />
+                  <small>{m.title ?? m.id}</small>
+                </button>
+              );
+            })}
           </div>
           <div class="camera-controls">
             <Button kind="secondary" onClick={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))}>
               🔄
             </Button>
             <button type="button" class="shutter" aria-label={t.camera.shoot} disabled={status !== 'ready'} onClick={takeShot} />
-            <span class="camera-spacer" />
+            <span class="camera-spacer muted">{picks.length > 1 ? t.camera.layers(picks.length) : ''}</span>
           </div>
         </>
       )}

@@ -60,6 +60,12 @@ export const t = {
     retake: 'Переснять',
     save: 'Сохранить',
     noMask: 'Без маски',
+    clearAll: 'Снять все',
+    whoFor: 'Кому маска',
+    forAll: 'Всем',
+    forLeft: 'Слева',
+    forRight: 'Справа',
+    layers: (n: number) => `${n} ${plural(n, 'слой', 'слоя', 'слоёв')}`,
     trackingLoading: 'Загружаем маски…',
     frameMode: 'Режим рамок: трекинг лица недоступен',
     slowFrameMode: 'Телефон не успевает — включён режим рамок',
@@ -129,6 +135,8 @@ export const t = {
     update: 'Обновить приложение',
     updateChecking: 'Проверяем обновление…',
     updateNone: 'Установлена последняя версия',
+    updateFound: 'Новая версия загружена — приложение перезапустится',
+    version: 'Версия',
     log: 'Лог событий',
     exportLog: 'Экспорт лога (JSON)',
     storage: 'Хранилище',
@@ -161,8 +169,7 @@ export const t = {
 
   bootError: 'Не удалось загрузить квест',
   openAdmin: 'Открыть панель ведущего',
-  updateReady: 'Доступна новая версия',
-  updateNow: 'Обновить',
+  version: (v: string) => `Версия ${v}`,
 };
 
 function plural(n: number, one: string, few: string, many: string): string {

@@ -7,6 +7,7 @@ import { autoDownloadEnabled, useApp } from './appState';
 import { CameraView } from './components/CameraView';
 import { Button, Modal, toast, useObjectUrl } from './components/common';
 import { downloadAll } from './exportAll';
+import { APP_VERSION } from './pwa';
 import { t } from './strings.ru';
 
 function Thumb({ photo, onClick }: { photo: PhotoRecord; onClick: () => void }) {
@@ -172,6 +173,7 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
           }}
         />
       )}
+      <p class="version muted center">{t.version(APP_VERSION)}</p>
       {retake && (
         <RetakeCamera
           point={retake.point}

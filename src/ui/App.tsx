@@ -10,7 +10,6 @@ import { OriginScreen } from './OriginScreen';
 import { GalleryScreen } from './GalleryScreen';
 import { PlayScreen } from './PlayScreen';
 import { ProgressScreen } from './ProgressScreen';
-import { applyUpdate, onUpdateReady } from './pwa';
 import { navigate, useRoute } from './router';
 import { t } from './strings.ru';
 
@@ -40,20 +39,6 @@ function BalloonsBackground() {
           {b.emoji}
         </span>
       ))}
-    </div>
-  );
-}
-
-function UpdateBanner() {
-  const [ready, setReady] = useState(false);
-  useEffect(() => onUpdateReady(setReady), []);
-  if (!ready) return null;
-  return (
-    <div class="update-banner">
-      {t.updateReady}
-      <button type="button" class="link" onClick={() => applyUpdate()}>
-        {t.updateNow}
-      </button>
     </div>
   );
 }
@@ -114,7 +99,6 @@ export function App() {
       <BalloonsBackground />
       {/* Invisible top-right hot zone for the host's quick skip; kept above everything incl. the camera. */}
       <div class="corner-zone" onClick={cornerTap} />
-      <UpdateBanner />
       <main class="content">
         {showAdmin ? (
           <AdminPanel

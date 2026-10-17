@@ -6,7 +6,7 @@ export interface Bulge {
   strength: number;
 }
 
-export const MAX_BULGES = 8;
+export const MAX_BULGES = 16;
 
 const VERTEX = `#version 300 es
 in vec2 a_pos;

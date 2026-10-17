@@ -3,11 +3,23 @@ import { defineConfig, type Plugin } from 'vite';
 import preact from '@preact/preset-vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { extname, join, relative, resolve, sep } from 'node:path';
 
 // GitHub Pages serves the site from /<repo-name>/; the deploy workflow passes it via BASE_PATH.
 const base = process.env.BASE_PATH ?? '/';
 const contentDir = resolve(import.meta.dirname, 'content');
+
+function gitSha(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+
+// Shown in the app so the host can tell which build the phone is running.
+const appVersion = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} · ${process.env.GITHUB_SHA?.slice(0, 7) ?? gitSha()}`;
 
 const MIME: Record<string, string> = {
   '.json': 'application/json',
@@ -70,6 +82,7 @@ function contentPacks(): Plugin {
 
 export default defineConfig({
   base,
+  define: { __APP_VERSION__: JSON.stringify(appVersion) },
   plugins: [
     preact(),
     contentPacks(),
@@ -104,8 +117,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
-        // Take control of the page right after the very first install, so assets fetched later in that session
-        // (FaceLandmarker model, masks) go through the cache; updates still wait for the host's "update" button.
+        // A new version activates as soon as it is downloaded and takes over open pages; the page then reloads
+        // itself at a safe moment (src/ui/pwa.ts). Progress and photos live in IndexedDB, so nothing is lost.
+        skipWaiting: true,
         clientsClaim: true,
       },
     }),

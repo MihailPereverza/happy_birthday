@@ -12,7 +12,7 @@ import { knownStepTypes } from '../steps/registry';
 import { usesRelativePoints } from '../core/origin';
 import { autoDownloadEnabled, resetProgress, setOrigin, switchPack, updatePrefs, useApp } from '../ui/appState';
 import { Button, toast } from '../ui/components/common';
-import { checkForUpdate, applyUpdate } from '../ui/pwa';
+import { APP_VERSION, checkForUpdate } from '../ui/pwa';
 import { t } from '../ui/strings.ru';
 import { emulateAtPoint, emulatedPointId } from './emulator';
 
@@ -228,6 +228,8 @@ function MaintenanceSection() {
   return (
     <Section title={t.admin.storage}>
       <dl class="kv">
+        <dt>{t.admin.version}</dt>
+        <dd>{APP_VERSION}</dd>
         <dt>{t.admin.photos}</dt>
         <dd>{app.photos.length}</dd>
         <dt>{t.admin.storage}</dt>
@@ -251,10 +253,9 @@ function MaintenanceSection() {
           onClick={async () => {
             setUpdating(true);
             toast(t.admin.updateChecking);
-            const ready = await checkForUpdate().catch(() => false);
+            const found = await checkForUpdate().catch(() => false);
             setUpdating(false);
-            if (ready) await applyUpdate();
-            else toast(t.admin.updateNone);
+            toast(found ? t.admin.updateFound : t.admin.updateNone);
           }}
         >
           🔄 {t.admin.update}
