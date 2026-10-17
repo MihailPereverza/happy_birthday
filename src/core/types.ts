@@ -64,11 +64,19 @@ export type Step =
   | InfoStep | RiddleStep | CodeStep | QrStep | ChoiceStep | GeoStep
   | ActionStep | NumberStep | PhotoStep | FinalStep | StepBase;
 
+export interface RelativeOffset {
+  northM: number;
+  eastM: number;
+}
+
 export interface Point {
   id: string;
   name: string;
+  /** For `relative` points these are filled in from the player's start position (see core/origin.ts). */
   lat: number;
   lon: number;
+  /** Offset in metres from where the player starts the quest; lets one pack be played anywhere. */
+  relative?: RelativeOffset;
   radiusM?: number;
   visitOrder: number;
   outlineOrder: number;
@@ -111,6 +119,15 @@ export interface Progress {
   pointStartedAt: Record<string, number>;
   pointFinishedAt: Record<string, number>;
   startedAt: number;
+  /** Start position that `relative` points are laid out from; fixed once, so the route never moves. */
+  origin?: GeoOrigin;
+}
+
+export interface GeoOrigin {
+  lat: number;
+  lon: number;
+  /** True when no GPS was available and a placeholder position was used. */
+  placeholder?: boolean;
 }
 
 export const DEFAULT_RADIUS_M = 150;

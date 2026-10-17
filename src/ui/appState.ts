@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { newProgress, QuestEngine } from '../core/engine';
 import { initLog, logEvent } from '../core/log';
+import { resolveQuest, usesRelativePoints } from '../core/origin';
+import type { GeoOrigin } from '../core/types';
 import {
   clearProgress,
   loadActivePack,
@@ -52,7 +54,7 @@ async function refreshPhotos(): Promise<void> {
 async function activate(pack: LoadedPack, bootErrors: PackError[] | null, resetProgress: boolean): Promise<void> {
   const stored = resetProgress ? undefined : await loadProgress();
   const progress = stored?.packId === pack.quest.id ? stored : newProgress(pack.quest.id);
-  const engine = new QuestEngine(pack.quest, progress, saveProgress);
+  const engine = new QuestEngine(resolveQuest(pack.quest, progress.origin), progress, saveProgress);
   await saveProgress(engine.state);
   unsubscribeEngine?.();
   unsubscribeEngine = engine.subscribe(notify);
@@ -89,6 +91,17 @@ export async function resetProgress(): Promise<void> {
   await clearProgress();
   logEvent({ type: 'progress_reset' });
   await activate(state.pack, state.bootErrors, true);
+}
+
+/** A pack with `relative` points can only start once we know where the player stands. */
+export const needsOrigin = (app: AppState): boolean => usesRelativePoints(app.pack.quest) && !app.engine.state.origin;
+
+/** Fixes the start position and lays the route out around it. */
+export async function setOrigin(origin: GeoOrigin | undefined): Promise<void> {
+  if (!state) return;
+  await saveProgress({ ...state.engine.state, origin });
+  logEvent({ type: 'goto', detail: { origin } });
+  await activate(state.pack, state.bootErrors, false);
 }
 
 export async function updatePrefs(patch: Prefs): Promise<void> {

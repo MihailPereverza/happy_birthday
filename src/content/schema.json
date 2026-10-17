@@ -57,12 +57,18 @@
     },
     "point": {
       "type": "object",
-      "required": ["id", "name", "lat", "lon", "visitOrder", "outlineOrder", "steps"],
+      "required": ["id", "name", "visitOrder", "outlineOrder", "steps"],
+      "anyOf": [{ "required": ["lat", "lon"] }, { "required": ["relative"] }],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "lat": { "type": "number", "minimum": -90, "maximum": 90 },
         "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "relative": {
+          "type": "object",
+          "required": ["northM", "eastM"],
+          "properties": { "northM": { "type": "number" }, "eastM": { "type": "number" } }
+        },
         "radiusM": { "type": "number", "exclusiveMinimum": 0 },
         "visitOrder": { "type": "integer" },
         "outlineOrder": { "type": "integer" },

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { AdminPanel } from '../admin/panel';
 import { PinDialog } from '../admin/PinDialog';
 import { useLongPress, useTripleTap } from '../admin/gestures';
 import { logEvent } from '../core/log';
-import { useApp } from './appState';
-import { ToastHost } from './components/common';
+import { needsOrigin, useApp, type AppState } from './appState';
+import { toast, ToastHost } from './components/common';
+import { bigCelebration, smallCelebration } from './confetti';
+import { OriginScreen } from './OriginScreen';
 import { GalleryScreen } from './GalleryScreen';
 import { PlayScreen } from './PlayScreen';
 import { ProgressScreen } from './ProgressScreen';
@@ -22,6 +24,26 @@ function Logo() {
   );
 }
 
+const BALLOONS = [
+  { left: '6%', delay: '0s', duration: '19s', emoji: '🎈' },
+  { left: '28%', delay: '7s', duration: '23s', emoji: '🎉' },
+  { left: '52%', delay: '3s', duration: '21s', emoji: '🎈' },
+  { left: '74%', delay: '11s', duration: '25s', emoji: '💝' },
+  { left: '90%', delay: '5s', duration: '20s', emoji: '🎈' },
+];
+
+function BalloonsBackground() {
+  return (
+    <div class="balloons-bg" aria-hidden>
+      {BALLOONS.map((b, i) => (
+        <span key={i} style={{ left: b.left, animationDelay: b.delay, animationDuration: b.duration }}>
+          {b.emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function UpdateBanner() {
   const [ready, setReady] = useState(false);
   useEffect(() => onUpdateReady(setReady), []);
@@ -36,8 +58,28 @@ function UpdateBanner() {
   );
 }
 
+/** Confetti and a cheer whenever a step is passed (by answer or by the host — the player can't tell). */
+function useCelebrations(app: AppState): void {
+  const done = Object.keys(app.engine.state.results).length;
+  const points = Object.keys(app.engine.state.pointFinishedAt).length;
+  const prev = useRef({ done, points, quest: app.pack.quest.id });
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = { done, points, quest: app.pack.quest.id };
+    if (before.quest !== app.pack.quest.id) return;
+    if (points > before.points) {
+      bigCelebration();
+      toast(t.pointDone);
+    } else if (done > before.done) {
+      smallCelebration();
+      toast(t.cheers[Math.floor(Math.random() * t.cheers.length)]);
+    }
+  }, [done, points]);
+}
+
 export function App() {
   const app = useApp();
+  useCelebrations(app);
   const route = useRoute();
   const [pinFor, setPinFor] = useState<PinPurpose | null>(null);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -65,7 +107,11 @@ export function App() {
           <Logo />
         </button>
         <span class="header-title">{app.pack.quest.title}</span>
+        <span class="header-balloons" aria-hidden>
+          🎈
+        </span>
       </header>
+      <BalloonsBackground />
       {/* Invisible top-right hot zone for the host's quick skip; kept above everything incl. the camera. */}
       <div class="corner-zone" onClick={cornerTap} />
       <UpdateBanner />
@@ -77,6 +123,8 @@ export function App() {
               navigate('play');
             }}
           />
+        ) : needsOrigin(app) ? (
+          <OriginScreen />
         ) : screen === 'map' ? (
           <ProgressScreen />
         ) : screen === 'gallery' ? (

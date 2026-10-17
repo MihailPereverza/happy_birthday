@@ -16,25 +16,26 @@ describe('validateQuest', () => {
 
   it('reports an empty answer list with the spec path format', () => {
     const quest = load('demo');
-    quest.points[0].steps[2].answersHash = [];
-    expect(errorsOf(quest)).toContain('points[0].steps[2].answersHash: пусто');
+    quest.points[1].steps[1].answersHash = [];
+    expect(errorsOf(quest)).toContain('points[1].steps[1].answersHash: пусто');
   });
 
   it('reports missing fields, bad hashes, unknown types and dangling masks together', () => {
     const quest = load('demo');
-    delete quest.points[1].lat;
+    delete quest.points[1].relative;
     quest.settings.masterCodeHash = 'magic';
     quest.points[2].steps[1].type = 'teleport';
-    quest.points[0].steps[3].defaultMask = 'nope';
+    quest.points[0].steps[2].defaultMask = 'nope';
     const schemaErrors = errorsOf(quest);
     expect(schemaErrors).toContain('points[1].lat: обязательное поле отсутствует');
+    expect(schemaErrors).toContain('points[1].relative: обязательное поле отсутствует');
     expect(schemaErrors.some((e) => e.startsWith('settings.masterCodeHash'))).toBe(true);
 
-    quest.points[1].lat = 59.93;
+    quest.points[1].relative = { northM: 10, eastM: 10 };
     quest.settings.masterCodeHash = 'a'.repeat(64);
     const semantic = errorsOf(quest);
     expect(semantic).toContain('points[2].steps[1].type: неизвестный тип «teleport»');
-    expect(semantic).toContain('points[0].steps[3]: маска «nope» не найдена в masks');
+    expect(semantic).toContain('points[0].steps[2]: маска «nope» не найдена в masks');
   });
 
   it('rejects garbage without throwing', () => {

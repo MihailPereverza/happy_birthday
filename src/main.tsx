@@ -1,5 +1,11 @@
 import { render } from 'preact';
 import './steps/index';
+import '@fontsource/lobster/cyrillic-400.css';
+import '@fontsource/lobster/latin-400.css';
+import '@fontsource/nunito/cyrillic-400.css';
+import '@fontsource/nunito/cyrillic-800.css';
+import '@fontsource/nunito/latin-400.css';
+import '@fontsource/nunito/latin-800.css';
 import './ui/styles.css';
 import { App } from './ui/App';
 import { boot } from './ui/appState';

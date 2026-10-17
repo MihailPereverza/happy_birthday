@@ -18,14 +18,14 @@ describe('QuestEngine', () => {
     for (let i = 0; i < total; i += 1) await engine.completeStep();
     expect(engine.isFinished).toBe(true);
     expect(engine.current).toBeNull();
-    expect(Object.keys(engine.state.pointFinishedAt)).toEqual(['palace', 'isaac', 'kazan']);
+    expect(Object.keys(engine.state.pointFinishedAt)).toEqual(['start', 'left', 'left-lobe', 'left-top', 'dip', 'right-top', 'right-lobe', 'right']);
     expect(persist).toHaveBeenCalledTimes(total);
   });
 
   it('records skips with their source', async () => {
     const { engine } = makeEngine();
     await engine.completeStep(undefined, 'master');
-    expect(engine.resultOf('palace', 'welcome')?.skippedBy).toBe('master');
+    expect(engine.resultOf('start', 'hello')?.skippedBy).toBe('master');
     expect(engine.current?.step.id).toBe('go');
   });
 
@@ -33,9 +33,9 @@ describe('QuestEngine', () => {
     const { engine } = makeEngine();
     await engine.completeStep();
     await engine.skipPoint('gesture');
-    expect(engine.current?.point.id).toBe('isaac');
+    expect(engine.current?.point.id).toBe('left');
     expect(engine.current?.stepIndex).toBe(0);
-    expect(engine.resultOf('palace', 'selfie')?.skippedBy).toBe('gesture');
+    expect(engine.resultOf('start', 'selfie')?.skippedBy).toBe('gesture');
   });
 
   it('restores the same position from persisted progress', async () => {
@@ -44,9 +44,9 @@ describe('QuestEngine', () => {
     await engine.completeStep(42);
     const saved = persist.mock.calls.at(-1)![0];
     const { engine: restored } = makeEngine(structuredClone(saved));
-    expect(restored.current?.point.id).toBe('palace');
-    expect(restored.current?.step.id).toBe('riddle');
-    expect(restored.resultOf('palace', 'go')?.value).toBe(42);
+    expect(restored.current?.point.id).toBe('start');
+    expect(restored.current?.step.id).toBe('selfie');
+    expect(restored.resultOf('start', 'go')?.value).toBe(42);
   });
 
   it('counts failed attempts per step', async () => {
@@ -62,9 +62,9 @@ describe('QuestEngine', () => {
     await engine.skipPoint('gesture');
     await engine.skipPoint('gesture');
     await engine.goTo(0, 2);
-    expect(engine.current?.step.id).toBe('riddle');
-    expect(engine.isPointDone('palace')).toBe(false);
-    expect(engine.isPointDone('isaac')).toBe(false);
+    expect(engine.current?.step.id).toBe('selfie');
+    expect(engine.isPointDone('start')).toBe(false);
+    expect(engine.isPointDone('left')).toBe(false);
   });
 
   it('clamps a stale position from an edited pack', () => {

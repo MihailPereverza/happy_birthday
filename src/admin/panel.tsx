@@ -9,7 +9,8 @@ import type { Fix } from '../geo/zone';
 import { deleteAllPhotos } from '../photos/repository';
 import { downloadBlob } from '../photos/download';
 import { knownStepTypes } from '../steps/registry';
-import { autoDownloadEnabled, resetProgress, switchPack, updatePrefs, useApp } from '../ui/appState';
+import { usesRelativePoints } from '../core/origin';
+import { autoDownloadEnabled, resetProgress, setOrigin, switchPack, updatePrefs, useApp } from '../ui/appState';
 import { Button, toast } from '../ui/components/common';
 import { checkForUpdate, applyUpdate } from '../ui/pwa';
 import { t } from '../ui/strings.ru';
@@ -62,6 +63,11 @@ function StateSection() {
         <dt>{t.admin.gps}</dt>
         <dd>{fix ? `${fix.lat.toFixed(5)}, ${fix.lon.toFixed(5)} ±${Math.round(fix.accuracy)} м` : t.admin.noGps}</dd>
       </dl>
+      {usesRelativePoints(app.pack.quest) && (
+        <Button kind="secondary" onClick={() => confirm(t.origin.rebuildConfirm) && setOrigin(undefined)}>
+          📍 {t.origin.rebuild}
+        </Button>
+      )}
     </Section>
   );
 }

@@ -68,15 +68,15 @@ function Viewer(props: { photo: PhotoRecord; point: Point; onClose: () => void; 
   );
 }
 
-function RetakeCamera(props: { point: Point; replaces?: PhotoRecord; onDone: () => void }) {
+function RetakeCamera(props: { point: Point; replaces?: PhotoRecord; allMasks?: boolean; title?: string; onDone: () => void }) {
   const app = useApp();
   const { quest } = app.pack;
   const photoStep = props.point.steps.find((s): s is PhotoStep => s.type === 'photo');
-  const allowed = photoStep?.allowedMasks;
+  const allowed = props.allMasks ? undefined : photoStep?.allowedMasks;
   const masks = allowed?.length ? quest.masks.filter((m) => allowed.includes(m.id)) : quest.masks;
   return (
     <Modal onClose={props.onDone} wide>
-      <h2>{props.point.name}</h2>
+      <h2>{props.title ?? props.point.name}</h2>
       <CameraView
         masks={masks}
         defaultMaskId={props.replaces?.maskId ?? photoStep?.defaultMask}
@@ -86,7 +86,7 @@ function RetakeCamera(props: { point: Point; replaces?: PhotoRecord; onDone: () 
           await storePhoto({
             packId: quest.id,
             point: props.point,
-            stepId: props.replaces?.stepId ?? photoStep?.id ?? 'retake',
+            stepId: props.replaces?.stepId ?? (props.allMasks ? 'photobooth' : photoStep?.id ?? 'retake'),
             maskId,
             blob,
             autoDownload: autoDownloadEnabled(app),
@@ -109,7 +109,8 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
   const app = useApp();
   const { engine } = app;
   const [open, setOpen] = useState<PhotoRecord | null>(null);
-  const [retake, setRetake] = useState<{ point: Point; replaces?: PhotoRecord } | null>(null);
+  const [retake, setRetake] = useState<{ point: Point; replaces?: PhotoRecord; booth?: boolean } | null>(null);
+  const boothPoint = engine.current?.point ?? engine.points[engine.points.length - 1];
   const [busy, setBusy] = useState(false);
   const points = engine.points.filter(
     (p) => (!pointId || p.id === pointId) && (engine.isPointDone(p.id) || app.photos.some((ph) => ph.pointId === p.id)),
@@ -119,8 +120,15 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
   return (
     <section class="gallery">
       <h1 class="step-title">{t.gallery.title}</h1>
+      {app.pack.quest.masks.length > 0 && boothPoint && (
+        <>
+          <Button onClick={() => setRetake({ point: boothPoint, booth: true })}>{t.photobooth.open}</Button>
+          <p class="muted center small">{t.photobooth.hint}</p>
+        </>
+      )}
       {app.photos.length > 0 && (
         <Button
+          kind="secondary"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -164,7 +172,15 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
           }}
         />
       )}
-      {retake && <RetakeCamera point={retake.point} replaces={retake.replaces} onDone={() => setRetake(null)} />}
+      {retake && (
+        <RetakeCamera
+          point={retake.point}
+          replaces={retake.replaces}
+          allMasks={retake.booth}
+          title={retake.booth ? `${t.photobooth.title} · ${retake.point.name}` : undefined}
+          onDone={() => setRetake(null)}
+        />
+      )}
     </section>
   );
 }

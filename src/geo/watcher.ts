@@ -9,6 +9,8 @@ export interface GeoUpdate {
 
 type Listener = (update: GeoUpdate) => void;
 
+const SILENCE_POLL_MS = 4000;
+
 let emulated: Fix | null = null;
 const emulationListeners = new Set<Listener>();
 let lastFix: Fix | undefined;
@@ -39,19 +41,35 @@ export function watchPosition(listener: Listener): () => void {
   } else {
     listener({ status: 'waiting' });
   }
+  let lastRealFixAt = 0;
+  const onPosition = (p: GeolocationPosition) => {
+    if (emulated) return;
+    lastRealFixAt = Date.now();
+    lastFix = { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, at: p.timestamp };
+    listener({ status: 'ok', fix: lastFix });
+  };
+  const onError = (err: GeolocationPositionError) =>
+    emulated || listener({ status: err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable' });
+  let pollTimer: number | undefined;
   if ('geolocation' in navigator) {
-    geoId = navigator.geolocation.watchPosition(
-      (p) => {
-        if (emulated) return;
-        lastFix = { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, at: p.timestamp };
-        listener({ status: 'ok', fix: lastFix });
-      },
-      (err) => emulated || listener({ status: err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 },
-    );
+    geoId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 30_000,
+    });
+    // A phone standing still may stay silent in watchPosition; ask explicitly so zone entry still gets its fixes.
+    pollTimer = window.setInterval(() => {
+      if (emulated || Date.now() - lastRealFixAt < SILENCE_POLL_MS) return;
+      navigator.geolocation.getCurrentPosition(onPosition, () => undefined, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10_000,
+      });
+    }, SILENCE_POLL_MS);
   }
   return () => {
     clearInterval(timer);
+    window.clearInterval(pollTimer);
     emulationListeners.delete(listener);
     if (geoId !== undefined) navigator.geolocation.clearWatch(geoId);
   };
@@ -66,6 +84,24 @@ export function currentPosition(timeoutMs = 3000): Promise<Fix | undefined> {
       (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, at: p.timestamp }),
       () => resolve(lastFix),
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: timeoutMs },
+    );
+  });
+}
+
+export type FreshPosition = { ok: true; fix: Fix } | { ok: false; reason: 'denied' | 'unavailable' };
+
+/** A new high-accuracy fix (no cached positions), used to anchor a route around the player. */
+export function freshPosition(timeoutMs = 20_000): Promise<FreshPosition> {
+  if (emulated) return Promise.resolve({ ok: true, fix: emulated });
+  if (!('geolocation' in navigator)) return Promise.resolve({ ok: false, reason: 'unavailable' });
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        lastFix = { lat: p.coords.latitude, lon: p.coords.longitude, accuracy: p.coords.accuracy, at: p.timestamp };
+        resolve({ ok: true, fix: lastFix });
+      },
+      (err) => resolve({ ok: false, reason: err.code === err.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs },
     );
   });
 }

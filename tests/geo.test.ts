@@ -27,6 +27,20 @@ describe('ZoneDetector', () => {
     expect(zone.push(fix(59.939, 30.3158))).toBe(false);
   });
 
+  it('opens on a single inside fix that stays uncontradicted for the dwell time', () => {
+    const zone = new ZoneDetector(target);
+    zone.push(fix(59.939, 30.3158), 1000);
+    expect(zone.dwellReached(3000)).toBe(false);
+    expect(zone.dwellReached(4000)).toBe(true);
+  });
+
+  it('restarts the dwell timer after a fix outside', () => {
+    const zone = new ZoneDetector(target);
+    zone.push(fix(59.939, 30.3158), 1000);
+    zone.push(fix(59.95, 30.3158), 2000);
+    expect(zone.dwellReached(10_000)).toBe(false);
+  });
+
   it('ignores fixes with poor accuracy even at the exact spot', () => {
     const zone = new ZoneDetector(target);
     zone.push(fix(59.939, 30.3158, 150));

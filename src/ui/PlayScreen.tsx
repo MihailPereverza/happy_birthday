@@ -11,7 +11,7 @@ function buildContext(app: AppState, pos: Position): StepContext {
   const { point, step } = pos;
   const onComplete: StepContext['onComplete'] = (result, skippedBy) => engine.completeStep(result, skippedBy);
   return {
-    quest: pack.quest,
+    quest: engine.quest,
     point,
     engine,
     attempts: engine.attemptsFor(point, step),

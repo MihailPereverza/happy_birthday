@@ -37,8 +37,17 @@ export function OutlineView(props: OutlineProps) {
   const closed = revealed >= projected.length && projected.every((p, i) => isVisible(p, i));
   const radius = Math.max(14, Math.min(30, size / (projected.length * 1.6)));
 
+  const n = projected.length;
   const segments = projected.slice(0, -1).map((a, i) => [a, projected[i + 1], i] as const);
-  if (closed && projected.length > 2) segments.push([projected[projected.length - 1], projected[0], projected.length - 1]);
+  if (closed && n > 2) segments.push([projected[n - 1], projected[0], n - 1]);
+  // Closed Catmull-Rom spline through the points: a few points already read as a smooth heart.
+  const curve = (i: number): string => {
+    const at = (k: number) => projected[(k + n) % n];
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+    const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+    return `M ${p1.x} ${p1.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${p2.x} ${p2.y}`;
+  };
 
   return (
     <svg class="outline" viewBox={`0 0 ${size} ${size}`} role="img">
@@ -51,8 +60,8 @@ export function OutlineView(props: OutlineProps) {
       </defs>
       {segments
         .filter(([a, b, i]) => isVisible(a, i) && isVisible(b, (i + 1) % projected.length))
-        .map(([a, b, i]) => (
-          <line key={`seg-${i}`} class="outline-seg" x1={a.x} y1={a.y} x2={b.x} y2={b.y} pathLength={1} />
+        .map(([, , i]) => (
+          <path key={`seg-${i}`} class="outline-seg" d={n > 2 ? curve(i) : `M ${projected[0].x} ${projected[0].y} L ${projected[1].x} ${projected[1].y}`} pathLength={1} />
         ))}
       {projected.map((p, i) => {
         const state = props.stateOf(p);

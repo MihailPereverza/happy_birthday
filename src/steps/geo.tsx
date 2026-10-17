@@ -52,21 +52,27 @@ function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
 
   useEffect(() => {
     const detector = new ZoneDetector(target);
+    let latest: Fix | null = null;
+    const arrive = () => {
+      if (arrived.current || !latest) return;
+      arrived.current = true;
+      navigator.vibrate?.([100, 50, 100]);
+      ctx.onComplete({ lat: latest.lat, lon: latest.lon, accuracy: latest.accuracy });
+    };
     const stop = watchPosition((update) => {
       setStatus(update.status);
       if (!update.fix) return;
+      latest = update.fix;
       setFix(update.fix);
       if (update.fix.accuracy <= target.maxAccuracyM) lastGoodAt.current = Date.now();
-      if (detector.push(update.fix) && !arrived.current) {
-        arrived.current = true;
-        navigator.vibrate?.([100, 50, 100]);
-        ctx.onComplete({ lat: update.fix.lat, lon: update.fix.lon, accuracy: update.fix.accuracy });
-      }
+      if (detector.push(update.fix)) arrive();
     });
+    const dwellTimer = setInterval(() => detector.dwellReached() && arrive(), 1000);
     const timer = setInterval(() => setNoFixTooLong(Date.now() - lastGoodAt.current > NO_FIX_TIMEOUT_MS), 5000);
     return () => {
       stop();
       clearInterval(timer);
+      clearInterval(dwellTimer);
     };
   }, [target]);
 
