@@ -104,6 +104,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // Take control of the page right after the very first install, so assets fetched later in that session
+        // (FaceLandmarker model, masks) go through the cache; updates still wait for the host's "update" button.
+        clientsClaim: true,
       },
     }),
   ],
