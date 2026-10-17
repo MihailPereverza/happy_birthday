@@ -1,0 +1,125 @@
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { DEFAULT_MAX_ACCURACY_M, DEFAULT_RADIUS_M, type GeoStep } from '../core/types';
+import { yandexRouteUrl } from '../geo/deeplink';
+import { bearingDeg, distanceM } from '../geo/haversine';
+import { watchPosition, type GeoStatus } from '../geo/watcher';
+import { ZoneDetector, type Fix } from '../geo/zone';
+import { AnswerForm, Button, StepShell, useWakeLock } from '../ui/components/common';
+import { t } from '../ui/strings.ru';
+import type { StepContext, StepDefinition } from './types';
+
+const NO_FIX_TIMEOUT_MS = 60_000;
+
+function accuracyLevel(accuracy: number, max: number): 'good' | 'fair' | 'bad' {
+  if (accuracy <= Math.min(30, max)) return 'good';
+  return accuracy <= max ? 'fair' : 'bad';
+}
+
+/** Device heading in degrees from north, via the absolute orientation sensor Chrome on Android exposes. */
+function useCompass(enabled: boolean): number | null {
+  const [heading, setHeading] = useState<number | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const onOrientation = (e: DeviceOrientationEvent) => {
+      if (e.alpha !== null) setHeading((360 - e.alpha) % 360);
+    };
+    window.addEventListener('deviceorientationabsolute', onOrientation as EventListener);
+    return () => window.removeEventListener('deviceorientationabsolute', onOrientation as EventListener);
+  }, [enabled]);
+  return heading;
+}
+
+function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
+  const { point, quest } = ctx;
+  const target = useMemo(
+    () => ({
+      lat: point.lat,
+      lon: point.lon,
+      radiusM: point.radiusM ?? quest.settings.defaultRadiusM ?? DEFAULT_RADIUS_M,
+      maxAccuracyM: quest.settings.maxAccuracyM ?? DEFAULT_MAX_ACCURACY_M,
+    }),
+    [point, quest],
+  );
+  const [status, setStatus] = useState<GeoStatus>('waiting');
+  const [fix, setFix] = useState<Fix | null>(null);
+  const [noFixTooLong, setNoFixTooLong] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [compassOn, setCompassOn] = useState(false);
+  const heading = useCompass(compassOn);
+  const lastGoodAt = useRef(Date.now());
+  const arrived = useRef(false);
+  useWakeLock(true);
+
+  useEffect(() => {
+    const detector = new ZoneDetector(target);
+    const stop = watchPosition((update) => {
+      setStatus(update.status);
+      if (!update.fix) return;
+      setFix(update.fix);
+      if (update.fix.accuracy <= target.maxAccuracyM) lastGoodAt.current = Date.now();
+      if (detector.push(update.fix) && !arrived.current) {
+        arrived.current = true;
+        navigator.vibrate?.([100, 50, 100]);
+        ctx.onComplete({ lat: update.fix.lat, lon: update.fix.lon, accuracy: update.fix.accuracy });
+      }
+    });
+    const timer = setInterval(() => setNoFixTooLong(Date.now() - lastGoodAt.current > NO_FIX_TIMEOUT_MS), 5000);
+    return () => {
+      stop();
+      clearInterval(timer);
+    };
+  }, [target]);
+
+  const distance = fix ? distanceM(fix.lat, fix.lon, target.lat, target.lon) : null;
+  const level = fix ? accuracyLevel(fix.accuracy, target.maxAccuracyM) : 'bad';
+  const arrow = fix && heading !== null ? bearingDeg(fix.lat, fix.lon, target.lat, target.lon) - heading : null;
+  const canAskCode = status === 'denied' || status === 'unavailable' || noFixTooLong;
+
+  return (
+    <StepShell step={{ ...step, title: step.title ?? t.geo.heading }} asset={ctx.asset}>
+      <p class="geo-target">
+        {t.geo.to}: <b>{step.targetName ?? point.name}</b>
+      </p>
+      <div class="geo-distance">{distance !== null ? t.geo.distance(distance) : '—'}</div>
+      {arrow !== null && (
+        <div class="compass-arrow" style={{ transform: `rotate(${arrow}deg)` }} aria-hidden>
+          ➤
+        </div>
+      )}
+      {fix && (
+        <p class={`gps gps-${level}`}>
+          <span class="gps-dot" /> {t.geo.accuracy(fix.accuracy)} · {t.geo[`accuracy${level[0].toUpperCase()}${level.slice(1)}` as 'accuracyGood']}
+        </p>
+      )}
+      {status === 'waiting' && !fix && <p class="muted">{t.geo.waiting}</p>}
+      {status === 'denied' && <p class="error">{t.geo.denied}</p>}
+      {status === 'unavailable' && <p class="error">{t.geo.unavailable}</p>}
+      <div class="row">
+        <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'pd')}>
+          🚶 {t.geo.routeWalk}
+        </Button>
+        <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'mt')}>
+          🚌 {t.geo.routeTransit}
+        </Button>
+      </div>
+      {!compassOn && 'ondeviceorientationabsolute' in window && (
+        <Button kind="ghost" onClick={() => setCompassOn(true)}>
+          🧭 {t.geo.compass}
+        </Button>
+      )}
+      {canAskCode && !showCode && (
+        <Button kind="ghost" onClick={() => setShowCode(true)}>
+          {t.geo.cantFind}
+        </Button>
+      )}
+      {showCode && (
+        <>
+          <p class="muted">{t.geo.enterCode}</p>
+          <AnswerForm placeholder={t.codePlaceholder} onSubmit={(v) => ctx.submitAnswer(v)} autoFocus />
+        </>
+      )}
+    </StepShell>
+  );
+}
+
+export const geoStep: StepDefinition<GeoStep> = { type: 'geo', render: (step, ctx) => <Geo step={step} ctx={ctx} /> };

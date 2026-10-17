@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Quest pack",
+  "type": "object",
+  "required": ["id", "title", "settings", "points", "final"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$" },
+    "title": { "type": "string", "minLength": 1 },
+    "settings": {
+      "type": "object",
+      "required": ["masterCodeHash", "adminPinHash"],
+      "properties": {
+        "masterCodeHash": { "$ref": "#/definitions/sha256" },
+        "adminPinHash": { "$ref": "#/definitions/sha256" },
+        "defaultRadiusM": { "type": "number", "exclusiveMinimum": 0 },
+        "maxAccuracyM": { "type": "number", "exclusiveMinimum": 0 },
+        "hideFuturePoints": { "type": "boolean" },
+        "autoDownload": { "type": "boolean" }
+      }
+    },
+    "masks": { "type": "array", "items": { "$ref": "#/definitions/mask" } },
+    "points": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/point" } },
+    "final": {
+      "type": "object",
+      "required": ["title", "text"],
+      "properties": {
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "image": { "type": "string" }
+      }
+    }
+  },
+  "definitions": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+    "hashList": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/sha256" } },
+    "mask": {
+      "type": "object",
+      "required": ["id", "src"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["face", "frame"] },
+        "src": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "anchor": {
+          "anyOf": [
+            { "enum": ["eyesMid", "forehead", "noseTip", "chin", "mouth"] },
+            { "type": "integer", "minimum": 0, "maximum": 477 }
+          ]
+        },
+        "widthEyes": { "type": "number", "exclusiveMinimum": 0 },
+        "offsetX": { "type": "number" },
+        "offsetY": { "type": "number" },
+        "rotate": { "type": "boolean" }
+      },
+      "if": { "not": { "properties": { "type": { "const": "frame" } }, "required": ["type"] } },
+      "then": { "required": ["anchor", "widthEyes"] }
+    },
+    "point": {
+      "type": "object",
+      "required": ["id", "name", "lat", "lon", "visitOrder", "outlineOrder", "steps"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "radiusM": { "type": "number", "exclusiveMinimum": 0 },
+        "visitOrder": { "type": "integer" },
+        "outlineOrder": { "type": "integer" },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/step" } }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "image": { "type": "string" },
+        "hints": { "type": "array", "items": { "type": "string" } },
+        "hintAfterAttempts": { "type": "integer", "minimum": 0 },
+        "skippable": { "type": "boolean" },
+        "unlock": {
+          "type": "object",
+          "properties": { "codesHash": { "$ref": "#/definitions/hashList" } }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "enum": ["riddle", "code", "qr"] } } },
+          "then": { "required": ["answersHash"], "properties": { "answersHash": { "$ref": "#/definitions/hashList" } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "choice" } } },
+          "then": {
+            "required": ["options"],
+            "properties": {
+              "options": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "type": "string" } },
+              "correct": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0 } },
+              "anyCorrect": { "type": "boolean" }
+            },
+            "anyOf": [
+              { "required": ["correct"] },
+              { "required": ["anyCorrect"], "properties": { "anyCorrect": { "const": true } } }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "number" } } },
+          "then": {
+            "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "key": { "type": "string" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "photo" } } },
+          "then": {
+            "properties": {
+              "minPhotos": { "type": "integer", "minimum": 0 },
+              "defaultMask": { "type": "string" },
+              "allowedMasks": { "type": "array", "items": { "type": "string" } },
+              "facing": { "enum": ["user", "environment"] }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

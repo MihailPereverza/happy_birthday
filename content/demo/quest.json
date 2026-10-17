@@ -1,0 +1,61 @@
+{
+  "id": "demo",
+  "title": "Демо-квест",
+  "settings": {
+    "masterCodeHash": "859bce038a1165f30801d459b6660d47411692f5762d379f16a9553b24557974",
+    "adminPinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "defaultRadiusM": 150,
+    "maxAccuracyM": 100,
+    "hideFuturePoints": true,
+    "autoDownload": true
+  },
+  "masks": [
+    { "id": "hat", "title": "Колпак", "src": "assets/masks/hat.png", "anchor": "forehead", "widthEyes": 2.3, "offsetY": -0.8 },
+    { "id": "glasses", "title": "Очки", "src": "assets/masks/glasses.png", "anchor": "eyesMid", "widthEyes": 1.9 },
+    { "id": "crown", "title": "Корона", "src": "assets/masks/crown.png", "anchor": "forehead", "widthEyes": 2.0, "offsetY": -0.45 },
+    { "id": "frame-1", "title": "Рамка", "type": "frame", "src": "assets/frames/frame-1.png" }
+  ],
+  "points": [
+    {
+      "id": "palace",
+      "name": "Дворцовая площадь",
+      "lat": 59.939, "lon": 30.3158, "radiusM": 150,
+      "visitOrder": 1, "outlineOrder": 1,
+      "steps": [
+        { "id": "welcome", "type": "info", "title": "Привет!", "text": "Это демо-квест. Он проверяет все типы шагов: дорогу, загадки, коды, фото с масками и финал.", "image": "assets/img/welcome.png" },
+        { "id": "go", "type": "geo", "title": "В путь", "targetName": "Александровская колонна", "unlock": { "codesHash": ["c0660c000bc0482cf5597dfe713d44073e6b2d9c5fdbe9ac02012ded5646f1e0"] } },
+        { "id": "riddle", "type": "riddle", "title": "Загадка", "text": "Ходят, а с места не сходят. Что это?", "answersHash": ["4780ee201364f5aa7d67dd94d90ce097a78d36be538da9cb986adac6494a95e7", "258f78a392069d859089d5fdff2240ea66aeaf5d53682e4cb7e268d58aad5eac"], "hints": ["Они есть на башнях и на руке", "Тик-так"], "hintAfterAttempts": 2 },
+        { "id": "selfie", "type": "photo", "title": "Селфи у колонны", "text": "Сфотографируйтесь в колпаке. Можно вдвоём!", "defaultMask": "hat", "minPhotos": 1 }
+      ]
+    },
+    {
+      "id": "isaac",
+      "name": "Исаакиевский собор",
+      "lat": 59.9341, "lon": 30.3061, "radiusM": 150,
+      "visitOrder": 2, "outlineOrder": 2,
+      "steps": [
+        { "id": "go", "type": "geo", "targetName": "Исаакиевская площадь", "unlock": { "codesHash": ["858a04e38222b0f47b5448f70596fa1317a2e63e7e7edd730164370a39c150b5"] } },
+        { "id": "year", "type": "code", "title": "Код", "text": "Введите год основания Петербурга.", "answersHash": ["a860d24f31d82a4fbf73c4239d615936fcdfbd6d08319ba3807303469a0a35d1"], "hints": ["Начало XVIII века"], "hintAfterAttempts": 1 },
+        { "id": "quiz", "type": "choice", "title": "Вопрос", "text": "Сколько колонн у собора?", "options": ["48", "72", "112"], "correct": [2] },
+        { "id": "mood", "type": "choice", "title": "Настроение", "text": "Как настроение?", "options": ["Отлично", "Прекрасно", "Лучше всех"], "anyCorrect": true },
+        { "id": "steps", "type": "number", "title": "Счёт", "text": "Сколько ступенек у входа? Посчитайте и введите.", "key": "stairs", "min": 0, "max": 100 },
+        { "id": "hug", "type": "action", "title": "Задание", "text": "Обнимитесь и нажмите «Готово»." },
+        { "id": "photo", "type": "photo", "title": "Фото в очках", "defaultMask": "glasses", "allowedMasks": ["glasses", "crown", "frame-1"], "minPhotos": 1 }
+      ]
+    },
+    {
+      "id": "kazan",
+      "name": "Казанский собор",
+      "lat": 59.9343, "lon": 30.3248, "radiusM": 150,
+      "visitOrder": 3, "outlineOrder": 3,
+      "steps": [
+        { "id": "go", "type": "geo", "targetName": "Колоннада Казанского собора", "unlock": { "codesHash": ["49018d4774fb11d3b8c677d294ce1b64144d94ae03e3df195bd7dedff3f1f6c9"] } },
+        { "id": "qr", "type": "qr", "title": "QR-код", "text": "Найдите QR-код у ведущего и отсканируйте его.", "answersHash": ["328ef99bdaba6bac502a91c16ffc808145f6e0af4832e1b1c3caf4d350517778"] },
+        { "id": "host", "type": "action", "title": "Секрет", "text": "Ведущий отметит это задание сам.", "hostOnly": true },
+        { "id": "photo", "type": "photo", "title": "Последний кадр", "text": "Финальное фото — в рамке.", "defaultMask": "frame-1", "minPhotos": 1, "facing": "environment" },
+        { "id": "final", "type": "final" }
+      ]
+    }
+  ],
+  "final": { "title": "С днём рождения!", "text": "Маршрут пройден — сердце собрано.\nСкачайте архив с фото для коллажа." }
+}

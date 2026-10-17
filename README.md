@@ -1,0 +1,79 @@
+# «Сердце» — PWA-движок гео-квеста
+
+Мобильное PWA (Android + Chrome): точки маршрута, шаги на точках, фото с масками, офлайн-режим, экспорт ZIP для коллажа.
+Контент лежит отдельно в `content/<packId>/quest.json` + `assets/`, движок от него не зависит.
+
+## Запуск
+
+```bash
+npm ci
+npm run dev        # http://localhost:5173, с телефона — по IP (камере и GPS нужен HTTPS или localhost)
+npm test           # unit-тесты: движок, хэши, геозона, проекция, валидация, экспорт
+npm run build      # dist/ (BASE_PATH=/<repo>/ для GitHub Pages)
+npm run hash "ответ" "ещё ответ"   # SHA-256 нормализованной строки для quest.json
+npm run mediapipe:fetch            # заново скопировать WASM и скачать face_landmarker.task в public/mediapipe
+```
+
+## Деплой
+
+1. Создать публичный репозиторий на GitHub и запушить ветку `main`.
+2. Settings → Pages → Source: **GitHub Actions**.
+3. `.github/workflows/deploy.yml` соберёт сайт (`npm ci → npm test → npm run build → deploy-pages`).
+   `BASE_PATH` подставляется из имени репозитория автоматически.
+4. На телефоне открыть `https://<user>.github.io/<repo>/` → меню Chrome → «Добавить на главный экран».
+   Дождаться полной загрузки (≈18 МБ уходит в кэш вместе с моделью лица), после этого всё работает в авиарежиме.
+
+## Демо-пакет (`content/demo`)
+
+3 точки в Петербурге, все типы шагов. Демо-коды (только для демо — для своего квеста задайте свои):
+
+| Что | Значение |
+|---|---|
+| PIN ведущего | `1234` |
+| Мастер-код | `магия` (с `!` на конце — пропуск всей точки) |
+| Коды точек (если GPS не ловит) | `точка1`, `точка2`, `точка3` |
+| Загадка / код / QR | `часы` или `часики` / `1703` / `HEART-QR` |
+
+## Ведущий
+
+- **Панель**: удерживать логотип 3 с → PIN. Пропуск шага/точки, переход на любой шаг, эмуляция координат
+  («я здесь»), выбор пакета или загрузка ZIP (ошибки валидации — списком), сброс, обновление приложения, лог, хранилище.
+- **Быстрый пропуск**: тройной тап в правом верхнем углу → PIN → текущий шаг засчитан.
+- **Мастер-код** в любом поле ответа молча засчитывает шаг; `мастер-код!` пропускает точку.
+- Вместо PIN также принимается мастер-код. Все пропуски пишутся в лог с `skippedBy: master | code | gesture`.
+
+## Свой контент-пакет
+
+Скопировать `content/demo` в `content/<packId>`, отредактировать `quest.json` (формат — раздел 11 ТЗ,
+схема — `src/content/schema.json`), ответы/коды/PIN заменить хэшами из `npm run hash`.
+Пакет появится в панели ведущего после деплоя. Пакет вне репозитория — ZIP с `quest.json` и `assets/`
+загружается с телефона и хранится в IndexedDB.
+
+Поля сверх примера в ТЗ: `step.targetName` (geo), `options`/`correct`/`anyCorrect` (choice), `min`/`max`/`unit`/`key`
+(number), `allowedMasks`/`facing` (photo), `hostOnly` (action — «Готово» только у ведущего), `mask.title`.
+
+Маски: `anchor` — `eyesMid | forehead | noseTip | chin | mouth` или индекс точки Face Mesh (0–477);
+`widthEyes`, `offsetX`, `offsetY` — в долях расстояния между внешними уголками глаз (33 и 263), смещение
+поворачивается вместе с головой. `type: "frame"` — рамка на весь кадр, без трекинга.
+
+## Архитектура
+
+```
+src/core      engine.ts (машина состояний), store.ts (IndexedDB), log.ts, hash.ts, types.ts
+src/steps     по файлу на тип шага + registry.ts — новый тип = новый файл + registerStep()
+src/geo       watcher (watchPosition + эмуляция), zone (2 замера подряд), haversine, deeplink
+src/camera    camera, faceTracker (MediaPipe, грузится лениво), maskRenderer, capture (JPEG 2048, q=0.9)
+src/photos    repository (IndexedDB), download (Загрузки + Web Share), exportZip (photos/ + points.json)
+src/progress  projection, outlineView, finalAnimation
+src/admin     gestures, masterCode, emulator, PinDialog, panel
+src/content   loader (репозиторий / ZIP), schema.json, validate (ajv + смысловые проверки)
+src/ui        strings.ru.ts (все тексты UI), экраны, стили
+```
+
+## Ограничения и что проверить до дня квеста
+
+- Хэши без соли: короткие ответы и 4-значный PIN подбираются перебором за секунды. Это защита от
+  случайного подглядывания в публичный репозиторий, не от целенаправленного взлома. Для PIN лучше 6+ цифр.
+- `choice.correct` хранится открытым текстом (ТЗ требует хэши только для riddle/code/qr).
+- Первое автоскачивание Chrome может спросить «Разрешить скачивание нескольких файлов» — разрешить заранее.
+- Проверить на реальном телефоне: fps масок, GPS на маршруте, открытие сайта с мобильной сети.
