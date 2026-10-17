@@ -38,6 +38,15 @@ describe('validateQuest', () => {
     expect(semantic).toContain('points[0].steps[2]: маска «nope» не найдена в masks');
   });
 
+  it('rejects an unknown effect and an effect without its id', () => {
+    const quest = load('demo');
+    quest.masks.push({ id: 'x', type: 'effect', effect: 'teleport' });
+    expect(errorsOf(quest).some((e) => e.startsWith('masks[') && e.includes('неизвестный эффект «teleport»'))).toBe(true);
+    quest.masks.pop();
+    quest.masks.push({ id: 'y', type: 'effect' });
+    expect(errorsOf(quest)).toContain(`masks[${quest.masks.length - 1}].effect: обязательное поле отсутствует`);
+  });
+
   it('rejects garbage without throwing', () => {
     expect(errorsOf(null).length).toBeGreaterThan(0);
     expect(errorsOf({ points: 'x' }).length).toBeGreaterThan(0);

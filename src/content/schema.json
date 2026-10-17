@@ -35,12 +35,16 @@
     "hashList": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/sha256" } },
     "mask": {
       "type": "object",
-      "required": ["id", "src"],
+      "required": ["id"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["face", "frame"] },
+        "type": { "enum": ["face", "frame", "effect"] },
         "src": { "type": "string", "minLength": 1 },
         "title": { "type": "string" },
+        "icon": { "type": "string" },
+        "hint": { "type": "string" },
+        "effect": { "type": "string", "minLength": 1 },
+        "params": { "type": "object" },
         "anchor": {
           "anyOf": [
             { "enum": ["eyesMid", "forehead", "noseTip", "chin", "mouth"] },
@@ -52,8 +56,17 @@
         "offsetY": { "type": "number" },
         "rotate": { "type": "boolean" }
       },
-      "if": { "not": { "properties": { "type": { "const": "frame" } }, "required": ["type"] } },
-      "then": { "required": ["anchor", "widthEyes"] }
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "effect" } }, "required": ["type"] },
+          "then": { "required": ["effect"] },
+          "else": { "required": ["src"] }
+        },
+        {
+          "if": { "not": { "properties": { "type": { "enum": ["frame", "effect"] } }, "required": ["type"] } },
+          "then": { "required": ["anchor", "widthEyes"] }
+        }
+      ]
     },
     "point": {
       "type": "object",

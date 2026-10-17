@@ -11,6 +11,147 @@
   },
   "masks": [
     {
+      "id": "candles",
+      "type": "effect",
+      "effect": "blowCandles",
+      "title": "Задуй свечи",
+      "icon": "🎂",
+      "hint": "Губы трубочкой и дуй! 🌬️",
+      "params": {
+        "candles": 7,
+        "text": "Желание загадано! ✨"
+      }
+    },
+    {
+      "id": "rainbow",
+      "type": "effect",
+      "effect": "rainbow",
+      "title": "Радуга",
+      "icon": "🌈",
+      "hint": "Открой рот пошире 😮"
+    },
+    {
+      "id": "big-eyes",
+      "type": "effect",
+      "effect": "bigEyes",
+      "title": "Глазастик",
+      "icon": "👀",
+      "hint": "Похлопай ресничками 🥺"
+    },
+    {
+      "id": "hamster",
+      "type": "effect",
+      "effect": "hamster",
+      "title": "Хомяк",
+      "icon": "🐹",
+      "hint": "Ты хомячок 🐹"
+    },
+    {
+      "id": "big-head",
+      "type": "effect",
+      "effect": "bigHead",
+      "title": "Головастик",
+      "icon": "🤯",
+      "hint": "Покачай головой"
+    },
+    {
+      "id": "alien",
+      "type": "effect",
+      "effect": "alien",
+      "title": "Пришелец",
+      "icon": "👽",
+      "hint": "Мы пришли с миром 👽"
+    },
+    {
+      "id": "kiss",
+      "type": "effect",
+      "effect": "kiss",
+      "title": "Поцелуйчик",
+      "icon": "💋",
+      "hint": "Губы трубочкой 😘"
+    },
+    {
+      "id": "lasers",
+      "type": "effect",
+      "effect": "laserEyes",
+      "title": "Лазеры",
+      "icon": "🤩",
+      "hint": "Подними брови 🤨"
+    },
+    {
+      "id": "horn",
+      "type": "effect",
+      "effect": "partyHorn",
+      "title": "Дудка",
+      "icon": "🥳",
+      "hint": "Открой рот — дудка развернётся"
+    },
+    {
+      "id": "dragon",
+      "type": "effect",
+      "effect": "dragon",
+      "title": "Дракон",
+      "icon": "🐉",
+      "hint": "Открой рот 🔥"
+    },
+    {
+      "id": "tears",
+      "type": "effect",
+      "effect": "happyTears",
+      "title": "Слёзы счастья",
+      "icon": "😂",
+      "hint": "Улыбнись — польётся сильнее"
+    },
+    {
+      "id": "in-love",
+      "type": "effect",
+      "effect": "heartHalo",
+      "title": "Влюблённый",
+      "icon": "😍"
+    },
+    {
+      "id": "fireworks",
+      "type": "effect",
+      "effect": "fireworks",
+      "title": "Салют",
+      "icon": "🎆"
+    },
+    {
+      "id": "age",
+      "type": "effect",
+      "effect": "ageBalloons",
+      "title": "Возраст",
+      "icon": "🎈",
+      "params": {
+        "text": "30",
+        "banner": "С днём рождения!"
+      }
+    },
+    {
+      "id": "disco",
+      "type": "effect",
+      "effect": "disco",
+      "title": "Диско",
+      "icon": "🪩",
+      "hint": "Танцуй! 💃"
+    },
+    {
+      "id": "swap",
+      "type": "effect",
+      "effect": "faceSwap",
+      "title": "Обмен лицами",
+      "icon": "🔄",
+      "hint": "Встаньте вдвоём 👯"
+    },
+    {
+      "id": "face-balloons",
+      "type": "effect",
+      "effect": "faceBalloons",
+      "title": "Голова-шарик",
+      "icon": "🎐",
+      "hint": "Улыбнись — ты на шариках!"
+    },
+    {
       "id": "hat",
       "title": "Колпак",
       "src": "assets/masks/hat.png",
@@ -111,9 +252,9 @@
         {
           "id": "selfie",
           "type": "photo",
-          "title": "Первое селфи 🥳",
-          "text": "Надень праздничный колпак — можно вдвоём, маска встанет на каждое лицо.",
-          "defaultMask": "hat",
+          "title": "Загадай желание 🎂",
+          "text": "Перед тобой торт со свечами. Сложи губы трубочкой и задуй их — а внизу ещё 20+ масок и эффектов: радуга изо рта, лазеры из глаз, обмен лицами…",
+          "defaultMask": "candles",
           "minPhotos": 1
         }
       ]
@@ -266,17 +407,9 @@
         {
           "id": "look",
           "type": "photo",
-          "title": "Фото в образе 🐱",
-          "text": "Выбери маску: ушки, корона, нос клоуна или усы.",
-          "defaultMask": "cat",
-          "allowedMasks": [
-            "cat",
-            "bunny",
-            "crown",
-            "nose",
-            "mustache",
-            "glasses"
-          ],
+          "title": "Самое смешное фото 🤪",
+          "text": "Глазастик, хомяк, пришелец, дракон — выбирай самый безбашенный эффект!",
+          "defaultMask": "big-eyes",
           "minPhotos": 1
         },
         {

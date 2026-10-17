@@ -1,6 +1,7 @@
 import Ajv, { type ErrorObject } from 'ajv';
 import schema from './schema.json';
 import type { Quest } from '../core/types';
+import { EFFECT_IDS } from '../camera/effects/ids';
 
 export interface PackError {
   path: string;
@@ -55,6 +56,11 @@ function duplicates(ids: string[]): string[] {
 function semanticErrors(quest: Quest, knownStepTypes: readonly string[]): PackError[] {
   const errors: PackError[] = [];
   const maskIds = new Set((quest.masks ?? []).map((m) => m.id));
+  (quest.masks ?? []).forEach((m, i) => {
+    if (m.type === 'effect' && !(EFFECT_IDS as readonly string[]).includes(m.effect)) {
+      errors.push({ path: `masks[${i}].effect`, message: `неизвестный эффект «${m.effect}» (есть: ${EFFECT_IDS.join(', ')})` });
+    }
+  });
   duplicates((quest.masks ?? []).map((m) => m.id)).forEach((id) =>
     errors.push({ path: 'masks', message: `повторяется id маски «${id}»` }),
   );

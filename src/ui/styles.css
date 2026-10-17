@@ -185,7 +185,15 @@ body {
 .mask-item small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .mask-item.active { border-color: var(--accent); background: var(--surface-2); }
 .mask-item:disabled { opacity: 0.35; }
-.mask-none { font-size: 32px; line-height: 48px; }
+.mask-icon { font-size: 34px; line-height: 48px; height: 48px; }
+.mask-item.effect { background: linear-gradient(160deg, #fff 0%, #fdf0ff 100%); }
+@media (prefers-color-scheme: dark) { .mask-item.effect { background: linear-gradient(160deg, var(--surface) 0%, var(--surface-2) 100%); } }
+.camera-hint {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%); margin: 0; max-width: 90%; text-align: center;
+  padding: 6px 14px; border-radius: 999px; font-weight: 800; font-size: 16px; color: #fff;
+  background: linear-gradient(100deg, rgba(233,30,99,.88), rgba(142,36,170,.88)); animation: hint-bob 2.5s ease-in-out infinite;
+}
+@keyframes hint-bob { 50% { transform: translateX(-50%) translateY(-3px) scale(1.03); } }
 .camera-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
 .camera-spacer { display: block; }
 .shutter {

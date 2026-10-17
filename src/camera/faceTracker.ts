@@ -1,6 +1,5 @@
-import { FaceLandmarker, FilesetResolver, type NormalizedLandmark } from '@mediapipe/tasks-vision';
-
-export type Landmarks = NormalizedLandmark[];
+import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { blendFrom, type FaceResult } from './effects/face';
 
 const BASE = import.meta.env.BASE_URL;
 let loading: Promise<FaceLandmarker> | null = null;
@@ -12,6 +11,8 @@ async function create(delegate: 'GPU' | 'CPU'): Promise<FaceLandmarker> {
     baseOptions: { modelAssetPath: `${BASE}mediapipe/face_landmarker.task`, delegate },
     runningMode: 'VIDEO',
     numFaces: 2,
+    // Expression scores (open mouth, pucker, raised brows…) drive the interactive effects.
+    outputFaceBlendshapes: true,
     minFaceDetectionConfidence: 0.5,
     minFacePresenceConfidence: 0.5,
     minTrackingConfidence: 0.5,
@@ -19,7 +20,7 @@ async function create(delegate: 'GPU' | 'CPU'): Promise<FaceLandmarker> {
 }
 
 export interface FaceTracker {
-  detect(video: HTMLVideoElement): Landmarks[];
+  detect(video: HTMLVideoElement): FaceResult[];
 }
 
 let lastTimestamp = 0;
@@ -30,7 +31,11 @@ function wrap(landmarker: FaceLandmarker): FaceTracker {
       // detectForVideo requires strictly increasing timestamps.
       const now = Math.max(performance.now(), lastTimestamp + 1);
       lastTimestamp = now;
-      return landmarker.detectForVideo(video, now).faceLandmarks ?? [];
+      const result = landmarker.detectForVideo(video, now);
+      return (result.faceLandmarks ?? []).map((landmarks, i) => ({
+        landmarks,
+        blend: blendFrom(result.faceBlendshapes?.[i]?.categories),
+      }));
     },
   };
 }

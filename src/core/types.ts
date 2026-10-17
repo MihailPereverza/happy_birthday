@@ -19,7 +19,21 @@ export interface FrameMask {
   title?: string;
 }
 
-export type Mask = FaceMask | FrameMask;
+/** Animated/interactive effect from src/camera/effects (warps, particles, expression triggers). */
+export interface EffectMask {
+  id: string;
+  type: 'effect';
+  effect: string;
+  title?: string;
+  /** Emoji shown in the mask strip when there is no `src` thumbnail. */
+  icon?: string;
+  src?: string;
+  /** What to do, shown over the camera: «Открой рот 😮». */
+  hint?: string;
+  params?: Record<string, unknown>;
+}
+
+export type Mask = FaceMask | FrameMask | EffectMask;
 
 export interface Unlock {
   codesHash?: string[];

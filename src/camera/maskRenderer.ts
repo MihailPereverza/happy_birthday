@@ -1,5 +1,7 @@
-import type { Anchor, FaceMask, FrameMask, Mask } from '../core/types';
-import type { Landmarks } from './trackerLoader';
+import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
+import type { Anchor, EffectMask, FaceMask, FrameMask, Mask } from '../core/types';
+
+type Landmarks = NormalizedLandmark[];
 
 // MediaPipe Face Mesh topology: 33/263 outer eye corners, 10 forehead top, 1 nose tip, 152 chin, 13/14 inner lips.
 export const LM = { eyeA: 33, eyeB: 263, forehead: 10, noseTip: 1, chin: 152, lipTop: 13, lipBottom: 14 } as const;
@@ -19,6 +21,8 @@ export interface FacePose {
 }
 
 export const isFrameMask = (mask: Mask): mask is FrameMask => mask.type === 'frame';
+export const isEffectMask = (mask: Mask): mask is EffectMask => mask.type === 'effect';
+export const isFaceMask = (mask: Mask): mask is FaceMask => !isFrameMask(mask) && !isEffectMask(mask);
 
 /** Converts normalized landmarks to canvas pixels; when mirrored, the eye that appears on the left is taken as L. */
 export function poseFromLandmarks(lm: Landmarks, width: number, height: number, mirrored: boolean): FacePose {
@@ -78,9 +82,16 @@ export function drawPlacement(ctx: CanvasRenderingContext2D, img: CanvasImageSou
   ctx.restore();
 }
 
-/** Draws `source` scaled to cover the canvas, like CSS object-fit: cover. */
-export function drawCover(ctx: CanvasRenderingContext2D, source: CanvasImageSource, sw: number, sh: number, mirror = false): void {
-  const { width, height } = ctx.canvas;
+/** Draws `source` scaled to cover a width×height area (in current drawing units), like object-fit: cover. */
+export function drawCover(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sw: number,
+  sh: number,
+  area: { width: number; height: number },
+  mirror = false,
+): void {
+  const { width, height } = area;
   const scale = Math.max(width / sw, height / sh);
   const dw = sw * scale;
   const dh = sh * scale;

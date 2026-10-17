@@ -60,7 +60,33 @@ npm run mediapipe:fetch            # заново скопировать WASM и
 Поля сверх примера в ТЗ: `step.targetName` (geo), `options`/`correct`/`anyCorrect` (choice), `min`/`max`/`unit`/`key`
 (number), `allowedMasks`/`facing` (photo), `hostOnly` (action — «Готово» только у ведущего), `mask.title`.
 
-Маски: `anchor` — `eyesMid | forehead | noseTip | chin | mouth` или индекс точки Face Mesh (0–477);
+### Эффекты (`"type": "effect"`)
+
+Живые эффекты на WebGL и canvas, реагируют на мимику (MediaPipe blendshapes), работают на двух лицах сразу:
+
+| `effect` | Что делает | Триггер |
+|---|---|---|
+| `blowCandles` | торт со свечами внизу кадра; свечи гаснут, салют, «Желание загадано!» (`params.candles`, `params.text`) | губы трубочкой / подуть |
+| `rainbow` | радуга изо рта | открыть рот |
+| `kiss` | сердечки из губ + румянец | губы трубочкой |
+| `laserEyes` | лазеры из глаз | поднять брови |
+| `partyHorn` | дудка-язык разворачивается, «ТУУУ!» и конфетти | открыть рот |
+| `dragon` | огонь с конфетти изо рта | открыть рот |
+| `happyTears` | фонтаны слёз | улыбка усиливает |
+| `bigEyes`, `hamster`, `bigHead`, `alien` | деформация лица шейдером | — |
+| `heartHalo` | сердечки вокруг головы, глаза-сердца | — |
+| `fireworks` | салют и корона из звёзд | — |
+| `ageBalloons` | золотые шары-цифры (`params.text`) и баннер (`params.banner`) | — |
+| `disco` | зеркальный шар, лучи, переливы | — |
+| `faceSwap` | двое меняются лицами | двое в кадре |
+| `faceBalloons` | твоё лицо на улетающих шариках | — |
+
+```json
+{ "id": "candles", "type": "effect", "effect": "blowCandles", "title": "Задуй свечи", "icon": "🎂",
+  "hint": "Губы трубочкой и дуй! 🌬️", "params": { "candles": 7 } }
+```
+
+PNG-маски: `anchor` — `eyesMid | forehead | noseTip | chin | mouth` или индекс точки Face Mesh (0–477);
 `widthEyes`, `offsetX`, `offsetY` — в долях расстояния между внешними уголками глаз (33 и 263), смещение
 поворачивается вместе с головой. `type: "frame"` — рамка на весь кадр, без трекинга.
 
