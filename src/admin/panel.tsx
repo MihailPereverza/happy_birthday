@@ -10,7 +10,7 @@ import { deleteAllPhotos } from '../photos/repository';
 import { downloadBlob } from '../photos/download';
 import { knownStepTypes } from '../steps/registry';
 import { usesRelativePoints } from '../core/origin';
-import { autoDownloadEnabled, resetProgress, setOrigin, switchPack, updatePrefs, useApp } from '../ui/appState';
+import { autoDownloadEnabled, resetProgress, setOrigin, switchPack, testModeEnabled, updatePrefs, useApp } from '../ui/appState';
 import { Button, toast } from '../ui/components/common';
 import { APP_VERSION, checkForUpdate } from '../ui/pwa';
 import { t } from '../ui/strings.ru';
@@ -245,6 +245,14 @@ function MaintenanceSection() {
           onChange={(e) => updatePrefs({ autoDownload: (e.target as HTMLInputElement).checked })}
         />
         {t.admin.autoDownload}
+      </label>
+      <label class="toggle">
+        <input
+          type="checkbox"
+          checked={testModeEnabled(app)}
+          onChange={(e) => updatePrefs({ testMode: (e.target as HTMLInputElement).checked })}
+        />
+        {t.admin.testMode}
       </label>
       <div class="col">
         <Button

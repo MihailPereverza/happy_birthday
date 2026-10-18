@@ -5,6 +5,7 @@ import { bearingDeg, distanceM } from '../geo/haversine';
 import { watchPosition, type GeoStatus } from '../geo/watcher';
 import { ZoneDetector, type Fix } from '../geo/zone';
 import { AnswerForm, Button, StepShell, useWakeLock } from '../ui/components/common';
+import { testModeEnabled, useApp } from '../ui/appState';
 import { t } from '../ui/strings.ru';
 import { geoVisibility, stepStartedAt } from './geoReveal';
 import type { StepContext, StepDefinition } from './types';
@@ -48,6 +49,7 @@ function useGeoVisibility(step: GeoStep, ctx: StepContext) {
 
 function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
   const { point, quest } = ctx;
+  const testMode = testModeEnabled(useApp());
   const target = useMemo(
     () => ({
       lat: point.lat,
@@ -136,6 +138,11 @@ function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
       {visibility.showRoute && !compassOn && 'ondeviceorientationabsolute' in window && (
         <Button kind="ghost" onClick={() => setCompassOn(true)}>
           🧭 {t.geo.compass}
+        </Button>
+      )}
+      {testMode && (
+        <Button kind="secondary" onClick={() => ctx.onComplete({ test: true })}>
+          📍 {t.geo.testArrive}
         </Button>
       )}
       {canAskCode && !showCode && (

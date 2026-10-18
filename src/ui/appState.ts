@@ -111,6 +111,8 @@ export async function updatePrefs(patch: Prefs): Promise<void> {
   setState({ ...state, prefs });
 }
 
+export const testModeEnabled = (app: AppState): boolean => app.prefs.testMode === true;
+
 export const autoDownloadEnabled = (app: AppState): boolean =>
   app.prefs.autoDownload ?? app.pack.quest.settings.autoDownload ?? true;
 

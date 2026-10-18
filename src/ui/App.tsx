@@ -99,6 +99,7 @@ export function App() {
           <Logo />
         </button>
         <span class="header-title">{app.pack.quest.title}</span>
+        {app.prefs.testMode && <span class="test-badge">{t.testBadge}</span>}
         {questRewards(app.engine.quest).length > 0 ? (
           <RewardStrip quest={app.engine.quest} progress={app.engine.state} variant="header" />
         ) : (

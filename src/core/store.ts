@@ -38,6 +38,8 @@ export async function storageEstimate(): Promise<{ usage: number; quota: number;
 
 export interface Prefs {
   autoDownload?: boolean;
+  /** Rehearsal mode: geo steps get an «I'm there» button, so the whole route can be played without walking. */
+  testMode?: boolean;
 }
 
 export const loadPrefs = async (): Promise<Prefs> => (await get<Prefs>('prefs', stateStore)) ?? {};

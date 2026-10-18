@@ -355,3 +355,8 @@ body.camera-open .tabbar, body.camera-open .header { visibility: hidden; }
 .receipt-ok-icon { font-size: 52px; line-height: 1; }
 .receipt-ok b { font-size: 22px; }
 .receipt-ok small { color: var(--muted); font-size: 15px; }
+
+.test-badge {
+  flex: 0 0 auto; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: .05em;
+  color: #1a0b12; background: #ffd54f; box-shadow: 0 0 0 2px #fff;
+}

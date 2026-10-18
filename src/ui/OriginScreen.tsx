@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { freshPosition } from '../geo/watcher';
-import { setOrigin, useApp } from './appState';
+import { setOrigin, testModeEnabled, useApp } from './appState';
 import { Button } from './components/common';
 import { t } from './strings.ru';
 
@@ -30,6 +30,11 @@ export function OriginScreen() {
       </Button>
       {state === 'denied' && <p class="error center">{t.geo.denied}</p>}
       {state === 'unavailable' && <p class="error center">{t.geo.unavailable}</p>}
+      {testModeEnabled(app) && state !== 'denied' && state !== 'unavailable' && (
+        <Button kind="ghost" onClick={() => setOrigin(PLACEHOLDER_ORIGIN)}>
+          🧪 {t.origin.withoutGps}
+        </Button>
+      )}
       {(state === 'denied' || state === 'unavailable') && (
         <>
           <Button kind="secondary" onClick={locate}>
