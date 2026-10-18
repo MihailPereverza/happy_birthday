@@ -22,6 +22,7 @@ export const t = {
   hintIn: (n: number) => `Подсказка появится после ${n} ${plural(n, 'попытки', 'попыток', 'попыток')}`,
   numberRange: (min?: number, max?: number) =>
     min !== undefined && max !== undefined ? `Допустимо от ${min} до ${max}` : min !== undefined ? `Не меньше ${min}` : `Не больше ${max}`,
+  skipOptional: 'Пропустить',
   hostOnlyAction: 'Это задание отметит ведущий',
   chooseOne: 'Выберите вариант',
 
@@ -42,6 +43,7 @@ export const t = {
     cantFind: 'Не могу найти точку',
     enterCode: 'Введите код точки',
     compass: 'Включить компас',
+    routeIn: (min: number) => `Маршрут-подсказка появится через ${min} мин`,
   },
 
   qr: {
@@ -49,6 +51,44 @@ export const t = {
     manual: 'Ввести код вручную',
     unsupported: 'Сканер QR недоступен на этом телефоне — введите код вручную',
     wrong: 'Это не тот QR-код',
+  },
+
+  receipt: {
+    scan: 'Наведите камеру на QR-код чека',
+    manual: 'Ввести строку из QR вручную',
+    placeholder: 't=…&s=…&fn=…&i=…&fp=…',
+    unsupported: 'Сканер QR недоступен на этом телефоне — вставьте строку из QR-кода чека',
+    notReceipt: 'Это не похоже на QR-код чека',
+    wrongDate: (date: string) => `Этот чек не сегодняшний (${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)})`,
+    sumLow: (min: number) => `Сумма в чеке маловата — нужно от ${min}\u00a0₽`,
+    sumHigh: (max: number) => `Сумма в чеке великовата — нужно не больше ${max}\u00a0₽`,
+  },
+
+  audio: {
+    record: 'Записать звук',
+    stop: 'Стоп',
+    rerecord: 'Перезаписать',
+    save: 'Сохранить',
+    upload: 'Загрузить аудиофайл',
+    continue: 'Продолжить',
+    minHint: (sec: number) => `Нужно минимум ${sec} с`,
+    length: (formatted: string) => `Длина записи: ${formatted}`,
+    tooShort: (sec: number) => `Слишком коротко — запишите хотя бы ${sec} с`,
+    unreadable: 'Не получилось прочитать этот файл — попробуйте другой',
+    unsupported: 'Запись звука недоступна на этом телефоне — загрузите аудиофайл',
+    micErrors: {
+      denied: 'Нет доступа к микрофону. Разрешите его в настройках браузера — или загрузите готовый аудиофайл.',
+      noMic: 'Микрофон не найден — загрузите готовый аудиофайл',
+      unsupported: 'Запись звука недоступна на этом телефоне — загрузите аудиофайл',
+    },
+    saved: 'Звук сохранён 🎧',
+  },
+
+  rewards: {
+    label: 'Ключи',
+    count: (n: number, total: number) => `${n}/${total}`,
+    obtained: (title: string, icon: string) => `${title} получен! ${icon}`,
+    defaultIcon: '🔑',
   },
 
   camera: {
@@ -100,6 +140,7 @@ export const t = {
     title: 'Маршрут',
     current: 'Сейчас здесь',
     locked: 'Ещё впереди',
+    secret: 'Загадка ❓',
   },
 
   final: {
@@ -156,6 +197,8 @@ export const t = {
   origin: {
     text: (n: number) =>
       `Маршрут-сердце из ${n} точек появится прямо вокруг вас. Разрешите доступ к геопозиции — первая точка там, где вы стоите.`,
+    // Packs mixing a relative start with fixed city points: only the start is placed around the player.
+    textFixedRoute: 'Разрешите доступ к геопозиции — квест начнётся там, где вы сейчас.',
     locate: 'Определить, где я',
     locating: 'Определяем, где вы…',
     retry: 'Попробовать ещё раз',

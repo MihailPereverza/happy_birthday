@@ -70,6 +70,8 @@ function semanticErrors(quest: Quest, knownStepTypes: readonly string[]): PackEr
   duplicates(quest.points.map((p) => String(p.visitOrder))).forEach((n) =>
     errors.push({ path: 'points', message: `повторяется visitOrder ${n}` }),
   );
+  const rewardIds = quest.points.flatMap((p) => p.steps.flatMap((s) => (s.reward ? [s.reward.id] : [])));
+  duplicates(rewardIds).forEach((id) => errors.push({ path: 'points', message: `повторяется id награды «${id}»` }));
   quest.points.forEach((point, pi) => {
     duplicates(point.steps.map((s) => s.id)).forEach((id) =>
       errors.push({ path: `points[${pi}].steps`, message: `повторяется id шага «${id}»` }),
@@ -87,6 +89,13 @@ function semanticErrors(quest: Quest, knownStepTypes: readonly string[]): PackEr
       ((step.correct as number[] | undefined) ?? [])
         .filter((i) => !options || i >= options.length)
         .forEach((i) => errors.push({ path: `${path}.correct`, message: `нет варианта с индексом ${i}` }));
+      const { minSum, maxSum } = step as { minSum?: number; maxSum?: number };
+      if (minSum !== undefined && maxSum !== undefined && minSum > maxSum) {
+        errors.push({ path: `${path}.minSum`, message: `больше maxSum (${maxSum})` });
+      }
+      if (step.revealRouteAfterMin !== undefined && !step.hideTarget) {
+        errors.push({ path: `${path}.revealRouteAfterMin`, message: 'действует только вместе с hideTarget: true' });
+      }
     });
   });
   return errors;
@@ -99,4 +108,12 @@ export function validateQuest(data: unknown, knownStepTypes: readonly string[]):
   quest.masks ??= [];
   const semantic = semanticErrors(quest, knownStepTypes);
   return semantic.length ? { ok: false, errors: semantic } : { ok: true, quest };
+}
+
+/** Pack-relative files the quest points at (mask images, step images/audio, final image). */
+export function referencedAssets(quest: Quest): string[] {
+  const fromSteps = quest.points.flatMap((p) => p.steps.flatMap((s) => [s.image, s.audio]));
+  return [...quest.masks.map((m) => m.src), ...fromSteps, quest.final.image].filter(
+    (p): p is string => typeof p === 'string' && !/^(https?:|data:)/.test(p),
+  );
 }

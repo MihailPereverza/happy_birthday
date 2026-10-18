@@ -39,6 +39,13 @@ export interface Unlock {
   codesHash?: string[];
 }
 
+/** Collected when its step is completed, including host skips (see core/rewards.ts). */
+export interface Reward {
+  id: string;
+  title: string;
+  icon?: string;
+}
+
 export interface StepBase {
   id: string;
   type: string;
@@ -49,6 +56,7 @@ export interface StepBase {
   hintAfterAttempts?: number;
   skippable?: boolean;
   unlock?: Unlock;
+  reward?: Reward;
   [extra: string]: unknown;
 }
 
@@ -62,7 +70,14 @@ export interface ChoiceStep extends StepBase {
   correct?: number[];
   anyCorrect?: boolean;
 }
-export interface GeoStep extends StepBase { type: 'geo'; targetName?: string }
+export interface GeoStep extends StepBase {
+  type: 'geo';
+  targetName?: string;
+  /** Location riddle: the step text is the clue, the target name and route buttons stay hidden. */
+  hideTarget?: boolean;
+  /** With `hideTarget`: route buttons appear as a hint after this many minutes on the step. */
+  revealRouteAfterMin?: number;
+}
 export interface ActionStep extends StepBase { type: 'action'; hostOnly?: boolean; buttonText?: string }
 export interface NumberStep extends StepBase { type: 'number'; key?: string; min?: number; max?: number; unit?: string }
 export interface PhotoStep extends StepBase {
@@ -72,11 +87,19 @@ export interface PhotoStep extends StepBase {
   allowedMasks?: string[];
   facing?: 'user' | 'environment';
 }
+export interface AudioStep extends StepBase { type: 'audio'; minSeconds?: number }
+export interface ReceiptStep extends StepBase {
+  type: 'receipt';
+  /** Default true: the receipt must be from today (local date). */
+  requireToday?: boolean;
+  minSum?: number;
+  maxSum?: number;
+}
 export interface FinalStep extends StepBase { type: 'final' }
 
 export type Step =
   | InfoStep | RiddleStep | CodeStep | QrStep | ChoiceStep | GeoStep
-  | ActionStep | NumberStep | PhotoStep | FinalStep | StepBase;
+  | ActionStep | NumberStep | PhotoStep | AudioStep | ReceiptStep | FinalStep | StepBase;
 
 export interface RelativeOffset {
   northM: number;

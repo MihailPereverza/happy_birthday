@@ -22,7 +22,9 @@ export function OriginScreen() {
         🎈❤️🎈
       </div>
       <h1 class="step-title center">{app.pack.quest.title}</h1>
-      <p class="step-text center">{t.origin.text(app.engine.points.length)}</p>
+      <p class="step-text center">
+        {app.pack.quest.points.every((p) => p.relative) ? t.origin.text(app.engine.points.length) : t.origin.textFixedRoute}
+      </p>
       <Button onClick={locate} disabled={state === 'locating'}>
         {state === 'locating' ? t.origin.locating : `📍 ${t.origin.locate}`}
       </Button>

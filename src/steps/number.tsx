@@ -1,5 +1,5 @@
 import type { NumberStep } from '../core/types';
-import { AnswerForm, Hints, StepShell } from '../ui/components/common';
+import { AnswerForm, Button, Hints, StepShell } from '../ui/components/common';
 import { t } from '../ui/strings.ru';
 import type { StepDefinition } from './types';
 
@@ -29,6 +29,11 @@ export const numberStep: StepDefinition<NumberStep> = {
           return 'ok';
         }}
       />
+      {step.skippable && (
+        <Button kind="ghost" onClick={() => ctx.onComplete()}>
+          {t.skipOptional}
+        </Button>
+      )}
       <Hints step={step} attempts={ctx.attempts} />
     </StepShell>
   ),

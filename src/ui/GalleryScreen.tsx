@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { PhotoStep, Point } from '../core/types';
 import { photoFileName, downloadBlob, sharePhoto } from '../photos/download';
+import { pointLabel } from '../steps/geoReveal';
 import { storePhoto } from '../photos/capturePhoto';
 import { deletePhoto, setMainPhoto, type PhotoRecord } from '../photos/repository';
 import { autoDownloadEnabled, useApp } from './appState';
@@ -81,7 +82,7 @@ function RetakeCamera(props: { point: Point; replaces?: PhotoRecord; allMasks?: 
       defaultMaskId={props.replaces?.maskId ?? photoStep?.defaultMask}
       facing={photoStep?.facing}
       asset={app.pack.asset}
-      title={props.title ?? props.point.name}
+      title={props.title ?? pointLabel(props.point, app.engine.state, t.progress.secret)}
       onClose={props.onDone}
       onSave={async (blob, maskId) => {
         await storePhoto({
@@ -140,7 +141,7 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
           <div class="gallery-point" key={point.id}>
             <div class="gallery-point-head">
               <h2>
-                {point.visitOrder}. {point.name}
+                {point.visitOrder}. {pointLabel(point, engine.state, t.progress.secret)}
               </h2>
               {engine.isPointDone(point.id) && (
                 <button type="button" class="link" onClick={() => setRetake({ point })}>
@@ -173,7 +174,7 @@ export function GalleryScreen({ pointId }: { pointId?: string }) {
           point={retake.point}
           replaces={retake.replaces}
           allMasks={retake.booth}
-          title={retake.booth ? `${t.photobooth.title} · ${retake.point.name}` : undefined}
+          title={retake.booth ? `${t.photobooth.title} · ${pointLabel(retake.point, engine.state, t.progress.secret)}` : undefined}
           onDone={() => setRetake(null)}
         />
       )}

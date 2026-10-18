@@ -9,6 +9,7 @@
     "preview": "vite preview --host",
     "test": "vitest run",
     "hash": "tsx scripts/hash.ts",
+    "pack:zip": "tsx scripts/packZip.ts",
     "mediapipe:fetch": "node scripts/fetchMediapipe.mjs"
   },
   "dependencies": {

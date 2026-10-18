@@ -335,3 +335,15 @@ body.camera-open .tabbar, body.camera-open .header { visibility: hidden; }
   .mask-item img, .mask-icon { width: 32px; height: 32px; font-size: 24px; line-height: 32px; }
   .shutter { width: 64px; height: 64px; }
 }
+
+.rewards { display: flex; align-items: center; gap: 8px; font-weight: 800; flex-shrink: 0; }
+.reward-icons { display: inline-flex; gap: 2px; }
+.reward { display: inline-block; filter: grayscale(1); opacity: 0.35; }
+.reward.got { filter: none; opacity: 1; animation: pop 0.5s ease; }
+.rewards-header { margin-left: auto; font-size: 15px; padding: 2px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); }
+.rewards-card {
+  justify-content: center; font-size: 20px; padding: 10px 14px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.audio-timer { margin: 0; text-align: center; font-size: 48px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rec-dot { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--danger); vertical-align: middle; animation: heartbeat 1s ease-in-out infinite; }

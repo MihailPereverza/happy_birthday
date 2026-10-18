@@ -45,3 +45,22 @@ it('exports all photos and points.json with geometry, order and results', async 
   expect(dip.lat).toBeGreaterThan(59.939);
   expect(right.mainPhoto).toBeNull();
 });
+
+it('exports audio files and collected rewards into points.json', async () => {
+  const withKey: Quest = structuredClone(quest);
+  withKey.points[0].steps[0].reward = { id: 'key1', title: 'Ключ 1', icon: '🔑' };
+  withKey.points[1].steps[0].reward = { id: 'key2', title: 'Ключ 2' };
+  const progress = { ...newProgress('demo'), results: { 'start/hello': { completedAt: 1_700_000_000_000, skippedBy: 'gesture' as const } } };
+  const audio = [
+    { id: 'x', packId: 'demo', pointId: 'left', stepId: 'rec', recordedAt: 1, durationSec: 3.24, mimeType: 'audio/webm;codecs=opus', blob: new Blob(['a']) },
+  ];
+  const zip = await JSZip.loadAsync(await (await exportZip(withKey, progress, [], audio)).arrayBuffer());
+
+  expect(zip.file('audio/02_left_1.webm')).not.toBeNull();
+  const manifest = JSON.parse(await zip.file('points.json')!.async('string'));
+  expect(manifest.rewards).toMatchObject({ collected: 1, total: 2 });
+  const [start, left] = manifest.points;
+  expect(start.rewards).toEqual([{ id: 'key1', title: 'Ключ 1', icon: '🔑', stepId: 'hello', collectedAt: new Date(1_700_000_000_000).toISOString() }]);
+  expect(left.rewards).toEqual([]);
+  expect(left.audio).toEqual([{ file: 'audio/02_left_1.webm', stepId: 'rec', durationSec: 3.2 }]);
+});

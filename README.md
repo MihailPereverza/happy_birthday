@@ -11,6 +11,7 @@ npm run dev        # http://localhost:5173, с телефона — по IP (к�
 npm test           # unit-тесты: движок, хэши, геозона, проекция, валидация, экспорт
 npm run build      # dist/ (BASE_PATH=/<repo>/ для GitHub Pages)
 npm run hash "ответ" "ещё ответ"   # SHA-256 нормализованной строки для quest.json
+npm run pack:zip -- <packId>       # private/<packId>/ → проверка + private/<packId>.zip для «Загрузить ZIP»
 npm run mediapipe:fetch            # заново скопировать WASM и скачать face_landmarker.task в public/mediapipe
 ```
 
@@ -59,6 +60,22 @@ npm run mediapipe:fetch            # заново скопировать WASM и
 
 Поля сверх примера в ТЗ: `step.targetName` (geo), `options`/`correct`/`anyCorrect` (choice), `min`/`max`/`unit`/`key`
 (number), `allowedMasks`/`facing` (photo), `hostOnly` (action — «Готово» только у ведущего), `mask.title`.
+
+- `step.reward: { id, title, icon? }` — награда (ключ) за шаг, засчитывается и при пропуске ведущим. Полоска
+  «🔑🔑▫️ 2/3» в шапке, на карте и в финале; награды попадают в `points.json` экспорта.
+- geo: `hideTarget: true` — загадка-локация: текст шага = подсказка, название цели, маршрут и компас скрыты
+  (расстояние и GPS видны), название точки не показывается на карте/в галерее до прибытия;
+  `revealRouteAfterMin: N` — кнопки маршрута появятся через N минут на шаге.
+- `audio` (`minSeconds`, по умолчанию 2) — запись с микрофона или загрузка аудиофайла; файлы в экспорте `audio/`.
+- `receipt` (`requireToday` = true, `minSum`, `maxSum`) — QR кассового чека (`t=…&s=…&fn=…&i=…&fp=…`): проверяются
+  формат, дата и сумма; мастер-код и коды разблокировки тоже принимаются.
+- `skippable: true` у `number` — кнопка «Пропустить».
+
+### Приватный пакет
+
+`private/` в `.gitignore`. `private/<packId>/` — `quest.json` (или `build.ts` с `export buildQuest()`, который его
+генерирует из открытых ответов) + `assets/`. `npm run pack:zip -- <packId>` проверяет пакет тем же валидатором и
+пишет `private/<packId>.zip`. Загруженный через панель ZIP становится активным и остаётся им после перезапуска.
 
 ### Эффекты (`"type": "effect"`)
 

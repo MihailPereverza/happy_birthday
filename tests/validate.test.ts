@@ -47,6 +47,28 @@ describe('validateQuest', () => {
     expect(errorsOf(quest)).toContain(`masks[${quest.masks.length - 1}].effect: обязательное поле отсутствует`);
   });
 
+  it('accepts rewards, location riddles, audio and receipt steps', () => {
+    const quest = load('demo');
+    quest.points[1].steps[0] = { ...quest.points[1].steps[0], hideTarget: true, revealRouteAfterMin: 15, reward: { id: 'k1', title: 'Ключ 1', icon: '🔑' } };
+    quest.points[1].steps.push({ id: 'rec', type: 'audio', minSeconds: 3 });
+    quest.points[1].steps.push({ id: 'check', type: 'receipt', requireToday: true, minSum: 30, maxSum: 1500 });
+    expect(errorsOf(quest)).toEqual([]);
+  });
+
+  it('reports bad rewards, duplicate reward ids, inverted sum ranges and a reveal without hideTarget', () => {
+    const quest = load('demo');
+    quest.points[0].steps[0].reward = { id: 'k1' };
+    expect(errorsOf(quest)).toContain('points[0].steps[0].reward.title: обязательное поле отсутствует');
+    quest.points[0].steps[0].reward = { id: 'k1', title: 'Ключ' };
+    quest.points[1].steps[1].reward = { id: 'k1', title: 'Ключ' };
+    quest.points[1].steps.push({ id: 'check', type: 'receipt', minSum: 100, maxSum: 50 });
+    quest.points[2].steps[0].revealRouteAfterMin = 5;
+    const errors = errorsOf(quest);
+    expect(errors).toContain('points: повторяется id награды «k1»');
+    expect(errors).toContain('points[1].steps[2].minSum: больше maxSum (50)');
+    expect(errors).toContain('points[2].steps[0].revealRouteAfterMin: действует только вместе с hideTarget: true');
+  });
+
   it('rejects garbage without throwing', () => {
     expect(errorsOf(null).length).toBeGreaterThan(0);
     expect(errorsOf({ points: 'x' }).length).toBeGreaterThan(0);

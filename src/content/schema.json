@@ -103,6 +103,15 @@
         "unlock": {
           "type": "object",
           "properties": { "codesHash": { "$ref": "#/definitions/hashList" } }
+        },
+        "reward": {
+          "type": "object",
+          "required": ["id", "title"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "title": { "type": "string", "minLength": 1 },
+            "icon": { "type": "string" }
+          }
         }
       },
       "allOf": [
@@ -129,6 +138,30 @@
           "if": { "properties": { "type": { "const": "number" } } },
           "then": {
             "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "key": { "type": "string" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "geo" } } },
+          "then": {
+            "properties": {
+              "targetName": { "type": "string" },
+              "hideTarget": { "type": "boolean" },
+              "revealRouteAfterMin": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "audio" } } },
+          "then": { "properties": { "minSeconds": { "type": "number", "exclusiveMinimum": 0 } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "receipt" } } },
+          "then": {
+            "properties": {
+              "requireToday": { "type": "boolean" },
+              "minSum": { "type": "number", "minimum": 0 },
+              "maxSum": { "type": "number", "minimum": 0 }
+            }
           }
         },
         {

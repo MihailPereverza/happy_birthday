@@ -9,6 +9,7 @@ export type LogEventType =
   | 'attempt_failed'
   | 'photo_saved'
   | 'photo_deleted'
+  | 'audio_saved'
   | 'pack_loaded'
   | 'progress_reset'
   | 'admin_opened'

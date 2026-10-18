@@ -3,6 +3,7 @@ import { mainPhotoByPoint } from '../photos/repository';
 import { FinalAnimation } from '../progress/finalAnimation';
 import { useApp } from './appState';
 import { Button } from './components/common';
+import { RewardStrip } from './components/RewardStrip';
 import { downloadAll } from './exportAll';
 import { t } from './strings.ru';
 
@@ -26,6 +27,7 @@ export function FinalView(props: { title?: string; text?: string }) {
       <FinalAnimation points={app.engine.points} mainPhotos={mainPhotos} runId={runId} />
       {image && <img class="step-image" src={image} alt="" />}
       <p class="final-text">{props.text ?? quest.final.text}</p>
+      <RewardStrip quest={app.engine.quest} progress={app.engine.state} variant="card" />
       <div class="final-actions">
         <Button
           disabled={busy}

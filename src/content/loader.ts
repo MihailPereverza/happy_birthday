@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { createStore, del, get, keys, set } from 'idb-keyval';
 import type { ActivePackRef } from '../core/store';
 import type { Quest } from '../core/types';
-import { validateQuest, type PackError } from './validate';
+import { referencedAssets, validateQuest, type PackError } from './validate';
 
 export interface LoadedPack {
   ref: ActivePackRef;
@@ -82,13 +82,6 @@ export async function loadPack(ref: ActivePackRef, stepTypes: readonly string[])
   if (ref.source === 'repo') return loadRepoPack(ref.id, stepTypes);
   const stored = await get<StoredZipPack>(ref.id, zipStore);
   return stored ? zipPackFromStored(ref.id, stored, stepTypes) : failure(`ZIP-пакет «${ref.id}» не найден на телефоне`);
-}
-
-function referencedAssets(quest: Quest): string[] {
-  const fromSteps = quest.points.flatMap((p) => p.steps.flatMap((s) => [s.image, s.audio]));
-  return [...quest.masks.map((m) => m.src), ...fromSteps, quest.final.image].filter(
-    (p): p is string => typeof p === 'string' && !/^(https?:|data:)/.test(p),
-  );
 }
 
 /** Reads quest.json + assets/ from a ZIP picked on the phone, validates it and stores it for offline use. */

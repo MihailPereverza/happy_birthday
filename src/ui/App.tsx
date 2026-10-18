@@ -3,8 +3,10 @@ import { AdminPanel } from '../admin/panel';
 import { PinDialog } from '../admin/PinDialog';
 import { useLongPress, useTripleTap } from '../admin/gestures';
 import { logEvent } from '../core/log';
+import { collectedRewards, questRewards } from '../core/rewards';
 import { needsOrigin, useApp, type AppState } from './appState';
 import { toast, ToastHost } from './components/common';
+import { RewardStrip } from './components/RewardStrip';
 import { bigCelebration, smallCelebration } from './confetti';
 import { OriginScreen } from './OriginScreen';
 import { GalleryScreen } from './GalleryScreen';
@@ -47,19 +49,24 @@ function BalloonsBackground() {
 function useCelebrations(app: AppState): void {
   const done = Object.keys(app.engine.state.results).length;
   const points = Object.keys(app.engine.state.pointFinishedAt).length;
-  const prev = useRef({ done, points, quest: app.pack.quest.id });
+  const rewards = collectedRewards(app.engine.quest, app.engine.state);
+  const prev = useRef({ done, points, rewards: rewards.length, quest: app.pack.quest.id });
   useEffect(() => {
     const before = prev.current;
-    prev.current = { done, points, quest: app.pack.quest.id };
+    prev.current = { done, points, rewards: rewards.length, quest: app.pack.quest.id };
     if (before.quest !== app.pack.quest.id) return;
-    if (points > before.points) {
+    const newest = rewards.length > before.rewards ? rewards.reduce((a, b) => (b.collectedAt > a.collectedAt ? b : a)) : null;
+    if (newest) {
+      bigCelebration();
+      toast(t.rewards.obtained(newest.title, newest.icon ?? t.rewards.defaultIcon));
+    } else if (points > before.points) {
       bigCelebration();
       toast(t.pointDone);
     } else if (done > before.done) {
       smallCelebration();
       toast(t.cheers[Math.floor(Math.random() * t.cheers.length)]);
     }
-  }, [done, points]);
+  }, [done, points, rewards.length]);
 }
 
 export function App() {
@@ -92,9 +99,13 @@ export function App() {
           <Logo />
         </button>
         <span class="header-title">{app.pack.quest.title}</span>
-        <span class="header-balloons" aria-hidden>
-          🎈
-        </span>
+        {questRewards(app.engine.quest).length > 0 ? (
+          <RewardStrip quest={app.engine.quest} progress={app.engine.state} variant="header" />
+        ) : (
+          <span class="header-balloons" aria-hidden>
+            🎈
+          </span>
+        )}
       </header>
       <BalloonsBackground />
       {/* Invisible top-right hot zone for the host's quick skip; kept above everything incl. the camera. */}

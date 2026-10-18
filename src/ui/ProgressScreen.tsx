@@ -2,7 +2,9 @@ import { useMemo } from 'preact/hooks';
 import type { Point } from '../core/types';
 import { mainPhotoByPoint } from '../photos/repository';
 import { OutlineView, type PointState } from '../progress/outlineView';
+import { pointLabel } from '../steps/geoReveal';
 import { useApp } from './appState';
+import { RewardStrip } from './components/RewardStrip';
 import { navigate } from './router';
 import { t } from './strings.ru';
 
@@ -17,6 +19,7 @@ export function ProgressScreen() {
   return (
     <section class="progress-screen">
       <h1 class="step-title">{t.progress.title}</h1>
+      <RewardStrip quest={engine.quest} progress={engine.state} variant="card" />
       <OutlineView
         points={engine.points}
         stateOf={stateOf}
@@ -30,7 +33,7 @@ export function ProgressScreen() {
           .map((p) => (
             <li key={p.id} class={`point-row ${stateOf(p)}`} onClick={() => stateOf(p) === 'done' && navigate(`gallery/${p.id}`)}>
               <span class="point-num">{p.visitOrder}</span>
-              <span>{p.name}</span>
+              <span>{pointLabel(p, engine.state, t.progress.secret)}</span>
               {stateOf(p) === 'current' && <small class="badge">{t.progress.current}</small>}
             </li>
           ))}

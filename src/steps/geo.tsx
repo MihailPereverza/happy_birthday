@@ -6,9 +6,11 @@ import { watchPosition, type GeoStatus } from '../geo/watcher';
 import { ZoneDetector, type Fix } from '../geo/zone';
 import { AnswerForm, Button, StepShell, useWakeLock } from '../ui/components/common';
 import { t } from '../ui/strings.ru';
+import { geoVisibility, stepStartedAt } from './geoReveal';
 import type { StepContext, StepDefinition } from './types';
 
 const NO_FIX_TIMEOUT_MS = 60_000;
+const REVEAL_TICK_MS = 15_000;
 
 function accuracyLevel(accuracy: number, max: number): 'good' | 'fair' | 'bad' {
   if (accuracy <= Math.min(30, max)) return 'good';
@@ -29,6 +31,21 @@ function useCompass(enabled: boolean): number | null {
   return heading;
 }
 
+/** Re-evaluates the riddle reveal every few seconds so the route buttons show up without a tap. */
+function useGeoVisibility(step: GeoStep, ctx: StepContext) {
+  const mountedAt = useRef(Date.now());
+  const [now, setNow] = useState(Date.now());
+  const timed = Boolean(step.hideTarget && step.revealRouteAfterMin !== undefined);
+  useEffect(() => {
+    if (!timed) return;
+    const timer = setInterval(() => setNow(Date.now()), REVEAL_TICK_MS);
+    return () => clearInterval(timer);
+  }, [timed]);
+  const stepIndex = ctx.point.steps.findIndex((s) => s.id === step.id);
+  const startedAt = stepStartedAt(ctx.engine.state, ctx.point, stepIndex) ?? mountedAt.current;
+  return geoVisibility(step, startedAt, now);
+}
+
 function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
   const { point, quest } = ctx;
   const target = useMemo(
@@ -46,6 +63,7 @@ function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
   const [showCode, setShowCode] = useState(false);
   const [compassOn, setCompassOn] = useState(false);
   const heading = useCompass(compassOn);
+  const visibility = useGeoVisibility(step, ctx);
   const lastGoodAt = useRef(Date.now());
   const arrived = useRef(false);
   useWakeLock(true);
@@ -83,11 +101,13 @@ function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
 
   return (
     <StepShell step={{ ...step, title: step.title ?? t.geo.heading }} asset={ctx.asset}>
-      <p class="geo-target">
-        {t.geo.to}: <b>{step.targetName ?? point.name}</b>
-      </p>
+      {visibility.showTarget && (
+        <p class="geo-target">
+          {t.geo.to}: <b>{step.targetName ?? point.name}</b>
+        </p>
+      )}
       <div class="geo-distance">{distance !== null ? t.geo.distance(distance) : '—'}</div>
-      {arrow !== null && (
+      {arrow !== null && visibility.showRoute && (
         <div class="compass-arrow" style={{ transform: `rotate(${arrow}deg)` }} aria-hidden>
           ➤
         </div>
@@ -100,15 +120,20 @@ function Geo({ step, ctx }: { step: GeoStep; ctx: StepContext }) {
       {status === 'waiting' && !fix && <p class="muted">{t.geo.waiting}</p>}
       {status === 'denied' && <p class="error">{t.geo.denied}</p>}
       {status === 'unavailable' && <p class="error">{t.geo.unavailable}</p>}
-      <div class="row">
-        <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'pd')}>
-          🚶 {t.geo.routeWalk}
-        </Button>
-        <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'mt')}>
-          🚌 {t.geo.routeTransit}
-        </Button>
-      </div>
-      {!compassOn && 'ondeviceorientationabsolute' in window && (
+      {visibility.showRoute ? (
+        <div class="row">
+          <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'pd')}>
+            🚶 {t.geo.routeWalk}
+          </Button>
+          <Button kind="secondary" href={yandexRouteUrl(target.lat, target.lon, 'mt')}>
+            🚌 {t.geo.routeTransit}
+          </Button>
+        </div>
+      ) : (
+        visibility.routeInMin !== null && <p class="muted center">{t.geo.routeIn(visibility.routeInMin)}</p>
+      )}
+      {/* The arrow would give the riddle away, so it comes back together with the route. */}
+      {visibility.showRoute && !compassOn && 'ondeviceorientationabsolute' in window && (
         <Button kind="ghost" onClick={() => setCompassOn(true)}>
           🧭 {t.geo.compass}
         </Button>
