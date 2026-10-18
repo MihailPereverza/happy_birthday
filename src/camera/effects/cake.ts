@@ -17,14 +17,42 @@ const cakeBox = ({ view, floorY }: EffectEnv): CakeBox => {
   return { x: view.x + view.w / 2, bottom: floorY - w * 0.04, w };
 };
 
-function candleTops(box: CakeBox, count: number) {
+/** Number candles («2», «5») are tall and wide; plain ones are thin sticks. */
+function candleTops(box: CakeBox, count: number, digits: boolean) {
   const topW = box.w * 0.62;
   const topY = box.bottom - box.w * 0.62;
+  const spread = digits ? 0.5 : 0.8;
   return Array.from({ length: count }, (_, i) => ({
-    x: box.x - topW * 0.4 + (count === 1 ? topW * 0.4 : (topW * 0.8 * i) / (count - 1)),
+    x: box.x - (topW * spread) / 2 + (count === 1 ? (topW * spread) / 2 : (topW * spread * i) / (count - 1)),
     base: topY + box.w * 0.02,
-    height: box.w * 0.17,
+    height: box.w * (digits ? 0.3 : 0.17),
   }));
+}
+
+function plainCandle(ctx: CanvasRenderingContext2D, c: { x: number; base: number; height: number }, w: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.fillRect(c.x - w / 2, c.base - c.height, w, c.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  for (let s = 0; s < 3; s += 1) ctx.fillRect(c.x - w / 2, c.base - c.height + (c.height * (s + 0.3)) / 3, w, c.height * 0.08);
+}
+
+/** A wax digit standing on the cake: candy-striped glyph with a thick outline and a wick on top. */
+function digitCandle(ctx: CanvasRenderingContext2D, c: { x: number; base: number; height: number }, digit: string, color: string): void {
+  ctx.save();
+  ctx.font = `800 ${c.height * 1.25}px Nunito, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  const stripes = ctx.createLinearGradient(c.x - c.height * 0.4, c.base - c.height, c.x + c.height * 0.4, c.base);
+  for (let k = 0; k <= 8; k += 1) stripes.addColorStop(k / 8, k % 2 ? '#ffffff' : color);
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = c.height * 0.08;
+  ctx.strokeStyle = '#ad1457';
+  ctx.strokeText(digit, c.x, c.base);
+  ctx.fillStyle = stripes;
+  ctx.fillText(digit, c.x, c.base);
+  ctx.fillStyle = '#3e2723';
+  ctx.fillRect(c.x - c.height * 0.012, c.base - c.height - c.height * 0.08, c.height * 0.024, c.height * 0.1);
+  ctx.restore();
 }
 
 function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
@@ -65,7 +93,11 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
 
 /** Birthday cake at the bottom of the frame: blow (pucker or open mouth) to put the candles out and make a wish. */
 export function blowCandles(params: Record<string, unknown>): Effect {
-  const count = Math.max(1, Math.min(12, Number(params.candles ?? 7)));
+  // `digits: "25"` puts number candles on the cake instead of `candles` plain sticks.
+  const digits = typeof params.digits === 'string' && params.digits.trim() ? [...params.digits.trim()].slice(0, 3) : null;
+  const count = digits ? digits.length : Math.max(1, Math.min(12, Number(params.candles ?? 7)));
+  // Blowing out one candle takes about as long overall as blowing out many, so a pair doesn't vanish instantly.
+  const secondsPerCandle = Math.max(SECONDS_PER_CANDLE, 0.9 / count);
   const wishText = String(params.text ?? 'Желание загадано! ✨');
   const lit = Array.from({ length: count }, () => true);
   let blowing = 0;
@@ -78,13 +110,13 @@ export function blowCandles(params: Record<string, unknown>): Effect {
     update(env, dt) {
       t = env.t;
       const box = cakeBox(env);
-      const tops = candleTops(box, count);
+      const tops = candleTops(box, count, !!digits);
       const blowNow = env.faces.some((f) => f.pucker > BLOW_THRESHOLD || f.jawOpen > 0.55);
       blowing += ((blowNow ? 1 : 0) - blowing) * Math.min(1, dt * 8);
       if (blowNow && lit.some(Boolean)) {
         blowAcc += dt;
-        while (blowAcc > SECONDS_PER_CANDLE) {
-          blowAcc -= SECONDS_PER_CANDLE;
+        while (blowAcc > secondsPerCandle) {
+          blowAcc -= secondsPerCandle;
           const candidates = lit.map((on, i) => (on ? i : -1)).filter((i) => i >= 0);
           const i = pick(candidates);
           lit[i] = false;
@@ -111,20 +143,17 @@ export function blowCandles(params: Record<string, unknown>): Effect {
     draw(ctx, env) {
       const box = cakeBox(env);
       drawCake(ctx, box);
-      const tops = candleTops(box, count);
+      const tops = candleTops(box, count, !!digits);
       ctx.save();
       tops.forEach((c, i) => {
-        const cw = box.w * 0.035;
-        ctx.fillStyle = PARTY[i % 5];
-        ctx.fillRect(c.x - cw / 2, c.base - c.height, cw, c.height);
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        for (let s = 0; s < 3; s += 1) ctx.fillRect(c.x - cw / 2, c.base - c.height + (c.height * (s + 0.3)) / 3, cw, c.height * 0.08);
+        if (digits) digitCandle(ctx, c, digits[i], PARTY[i % 5]);
+        else plainCandle(ctx, c, box.w * 0.035, PARTY[i % 5]);
         if (!lit[i]) return;
         const flick = Math.sin(t * 20 + i * 1.7) * 0.15;
         const lean = blowing * 0.9 + flick * 0.3;
         const fx = c.x;
-        const fy = c.base - c.height;
-        const fh = box.w * 0.08 * (1 - blowing * 0.4) * (1 + flick * 0.3);
+        const fy = c.base - c.height - (digits ? c.height * 0.08 : 0);
+        const fh = box.w * (digits ? 0.11 : 0.08) * (1 - blowing * 0.4) * (1 + flick * 0.3);
         ctx.save();
         ctx.translate(fx, fy);
         ctx.rotate(lean);
@@ -166,11 +195,12 @@ export function blowCandles(params: Record<string, unknown>): Effect {
       }
       ctx.restore();
       const size = box.w * 0.13;
+      const textLift = digits ? 1.15 : 0.95;
       if (wishAt >= 0 && env.t - wishAt < 3.5) {
         const pop = Math.min(1, (env.t - wishAt) * 4);
-        outlinedText(ctx, wishText, box.x, box.bottom - box.w * 0.95, size * (0.6 + 0.4 * pop), '#e91e63');
+        outlinedText(ctx, wishText, box.x, box.bottom - box.w * textLift, size * (0.6 + 0.4 * pop), '#e91e63');
       } else if (lit.every(Boolean)) {
-        outlinedText(ctx, 'Задуй свечи! 🌬️', box.x, box.bottom - box.w * 0.95, size * 0.8, '#8e24aa');
+        outlinedText(ctx, 'Задуй свечи! 🌬️', box.x, box.bottom - box.w * textLift, size * 0.8, '#8e24aa');
       }
     },
   };
