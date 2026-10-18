@@ -347,3 +347,11 @@ body.camera-open .tabbar, body.camera-open .header { visibility: hidden; }
 }
 .audio-timer { margin: 0; text-align: center; font-size: 48px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .rec-dot { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--danger); vertical-align: middle; animation: heartbeat 1s ease-in-out infinite; }
+
+.receipt-ok {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 16px; border-radius: var(--radius);
+  background: rgba(46, 125, 50, 0.12); border: 2px solid var(--ok); color: var(--ok); text-align: center; animation: pop 0.35s ease;
+}
+.receipt-ok-icon { font-size: 52px; line-height: 1; }
+.receipt-ok b { font-size: 22px; }
+.receipt-ok small { color: var(--muted); font-size: 15px; }

@@ -3,7 +3,7 @@ import type { ReceiptStep } from '../core/types';
 import { AnswerForm, Button, Hints, StepShell } from '../ui/components/common';
 import { QrScanner, qrScanSupported } from '../ui/components/QrScanner';
 import { t } from '../ui/strings.ru';
-import { verifyReceipt, type ReceiptVerdict } from './receiptCheck';
+import { verifyReceipt, type Receipt as ParsedReceipt, type ReceiptVerdict } from './receiptCheck';
 import type { StepContext, StepDefinition } from './types';
 
 function errorText(verdict: Extract<ReceiptVerdict, { ok: false }>, step: ReceiptStep): string {
@@ -23,12 +23,15 @@ function Receipt({ step, ctx }: { step: ReceiptStep; ctx: StepContext }) {
   const supported = qrScanSupported();
   const [manual, setManual] = useState(!supported);
   const [error, setError] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState<ParsedReceipt | null>(null);
   const lastRejected = useRef('');
 
   const check = async (raw: string): Promise<'ok' | string> => {
     const verdict = verifyReceipt(raw, step);
     if (verdict.ok) {
-      await ctx.onComplete(verdict.receipt);
+      // Show a green "accepted" state first; the player moves on with an explicit tap.
+      navigator.vibrate?.([60, 40, 60]);
+      setAccepted(verdict.receipt);
       return 'ok';
     }
     if (verdict.error === 'format') {
@@ -48,6 +51,19 @@ function Receipt({ step, ctx }: { step: ReceiptStep; ctx: StepContext }) {
     lastRejected.current = raw;
     setError(result);
   };
+
+  if (accepted) {
+    return (
+      <StepShell step={step} asset={ctx.asset}>
+        <div class="receipt-ok" role="status">
+          <span class="receipt-ok-icon">✅</span>
+          <b>{t.receipt.accepted}</b>
+          <small>{t.receipt.acceptedDetails(accepted.sum, accepted.date)}</small>
+        </div>
+        <Button onClick={() => ctx.onComplete(accepted)}>{t.receipt.next}</Button>
+      </StepShell>
+    );
+  }
 
   return (
     <StepShell step={step} asset={ctx.asset}>
