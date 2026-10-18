@@ -149,6 +149,7 @@ export const t = {
 
   final: {
     fullscreen: 'На весь экран',
+    exitFullscreen: 'Выйти',
     replay: 'Повторить',
   },
 

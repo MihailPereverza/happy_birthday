@@ -209,6 +209,12 @@ body {
 .final:fullscreen { padding: 24px; justify-content: center; overflow: auto; }
 .final:fullscreen .outline { max-height: 70vh; }
 .final:fullscreen .final-actions { display: none; }
+/* The only control left in fullscreen (TV show mode): a clear way back. */
+.final-exit {
+  position: fixed; top: calc(env(safe-area-inset-top) + 12px); left: 12px; z-index: 5;
+  min-height: 48px; padding: 0 16px; border: 0; border-radius: 24px; font: inherit; font-weight: 800;
+  color: #fff; background: rgba(0,0,0,.55);
+}
 .final-title { font-family: 'Lobster', cursive; font-weight: 400; font-size: 44px; margin: 0; color: var(--accent); animation: heartbeat 2s ease-in-out infinite; }
 .final { padding: 20px 16px; border-radius: 24px; background: var(--surface); box-shadow: var(--shadow); }
 .final-text { white-space: pre-line; margin: 0; }

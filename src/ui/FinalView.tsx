@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { mainPhotoByPoint } from '../photos/repository';
 import { FinalAnimation } from '../progress/finalAnimation';
 import { useApp } from './appState';
@@ -16,6 +16,13 @@ export function FinalView(props: { title?: string; text?: string }) {
   const mainPhotos = useMemo(() => mainPhotoByPoint(app.photos), [app.photos]);
   const image = app.pack.asset(quest.final.image);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(document.fullscreenElement === root.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else root.current?.requestFullscreen?.();
@@ -23,6 +30,11 @@ export function FinalView(props: { title?: string; text?: string }) {
 
   return (
     <div class="final" ref={root}>
+      {isFullscreen && (
+        <button type="button" class="final-exit" onClick={toggleFullscreen}>
+          ✕ {t.final.exitFullscreen}
+        </button>
+      )}
       <h1 class="final-title">{props.title ?? quest.final.title}</h1>
       <FinalAnimation points={app.engine.points} mainPhotos={mainPhotos} runId={runId} />
       {image && <img class="step-image" src={image} alt="" />}
