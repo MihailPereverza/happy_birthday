@@ -10,11 +10,19 @@ export function StepShell(props: {
 }) {
   const { step, asset } = props;
   const image = asset(step.image);
+  // Any step can carry a sound clue (e.g. where a QR code is hidden), not only info steps.
+  const audio = typeof step.audio === 'string' ? asset(step.audio) : undefined;
   return (
     <section class="step">
       {step.title && <h1 class="step-title">{step.title}</h1>}
       {image && <img class="step-image" src={image} alt="" />}
       {step.text && <p class="step-text">{step.text}</p>}
+      {audio && (
+        <div class="step-audio">
+          <span aria-hidden>🎧</span>
+          <audio src={audio} controls preload="auto" />
+        </div>
+      )}
       {props.children}
     </section>
   );

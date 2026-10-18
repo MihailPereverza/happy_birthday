@@ -360,3 +360,7 @@ body.camera-open .tabbar, body.camera-open .header { visibility: hidden; }
   flex: 0 0 auto; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: .05em;
   color: #1a0b12; background: #ffd54f; box-shadow: 0 0 0 2px #fff;
 }
+
+.step-audio { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius); background: var(--surface-2); }
+.step-audio span { font-size: 26px; }
+.step-audio audio { flex: 1; min-width: 0; height: 44px; }

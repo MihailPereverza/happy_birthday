@@ -97,6 +97,7 @@
         "title": { "type": "string" },
         "text": { "type": "string" },
         "image": { "type": "string" },
+        "audio": { "type": "string", "minLength": 1 },
         "hints": { "type": "array", "items": { "type": "string" } },
         "hintAfterAttempts": { "type": "integer", "minimum": 0 },
         "skippable": { "type": "boolean" },

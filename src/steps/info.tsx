@@ -4,10 +4,8 @@ import { t } from '../ui/strings.ru';
 import type { StepContext, StepDefinition } from './types';
 
 function Info({ step, ctx }: { step: InfoStep; ctx: StepContext }) {
-  const audio = ctx.asset(step.audio);
   return (
     <StepShell step={step} asset={ctx.asset}>
-      {audio && <audio class="audio" src={audio} controls preload="auto" />}
       <Button onClick={() => ctx.onComplete()}>{step.buttonText ?? t.next}</Button>
     </StepShell>
   );

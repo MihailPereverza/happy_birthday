@@ -52,6 +52,8 @@ export interface StepBase {
   title?: string;
   text?: string;
   image?: string;
+  /** Sound clue played on the step (pack-relative path). */
+  audio?: string;
   hints?: string[];
   hintAfterAttempts?: number;
   skippable?: boolean;
@@ -60,7 +62,7 @@ export interface StepBase {
   [extra: string]: unknown;
 }
 
-export interface InfoStep extends StepBase { type: 'info'; audio?: string; buttonText?: string }
+export interface InfoStep extends StepBase { type: 'info'; buttonText?: string }
 export interface RiddleStep extends StepBase { type: 'riddle'; answersHash: string[] }
 export interface CodeStep extends StepBase { type: 'code'; answersHash: string[] }
 export interface QrStep extends StepBase { type: 'qr'; answersHash: string[] }
