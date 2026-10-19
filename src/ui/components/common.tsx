@@ -17,6 +17,12 @@ export function StepShell(props: {
       {step.title && <h1 class="step-title">{step.title}</h1>}
       {image && <img class="step-image" src={image} alt="" />}
       {step.text && <p class="step-text">{step.text}</p>}
+      {step.clue && (
+        <div class="step-clue">
+          <b>🔎 {t.clueTitle}</b>
+          <p>{step.clue}</p>
+        </div>
+      )}
       {audio && (
         <div class="step-audio">
           <span aria-hidden>🎧</span>

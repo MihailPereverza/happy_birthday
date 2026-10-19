@@ -223,6 +223,7 @@ export const t = {
   },
 
   testBadge: 'ТЕСТ',
+  clueTitle: 'Где искать',
 
   bootError: 'Не удалось загрузить квест',
   openAdmin: 'Открыть панель ведущего',

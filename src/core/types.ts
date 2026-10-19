@@ -54,6 +54,8 @@ export interface StepBase {
   image?: string;
   /** Sound clue played on the step (pack-relative path). */
   audio?: string;
+  /** Where to look (e.g. where a QR code is hidden); shown as a highlighted callout, not buried in the text. */
+  clue?: string;
   hints?: string[];
   hintAfterAttempts?: number;
   skippable?: boolean;
