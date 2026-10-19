@@ -55,8 +55,25 @@ function digitCandle(ctx: CanvasRenderingContext2D, c: { x: number; base: number
   ctx.restore();
 }
 
-function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
+export type CakeFlavor = 'party' | 'red-velvet';
+
+interface CakeLook {
+  bodies: [string, string];
+  creams: [string, string];
+  /** Layers of cream visible in the sponge (red velvet is a layered cake). */
+  layers: number;
+  layerCream: string;
+  decor: 'sprinkles' | 'crumbs';
+}
+
+const LOOKS: Record<CakeFlavor, CakeLook> = {
+  party: { bodies: ['#f8bbd0', '#e1bee7'], creams: ['#ffffff', '#fff3e0'], layers: 0, layerCream: '', decor: 'sprinkles' },
+  'red-velvet': { bodies: ['#8e1b2c', '#9d2233'], creams: ['#fffaf2', '#fffaf2'], layers: 2, layerCream: '#fbf3e6', decor: 'crumbs' },
+};
+
+function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox, flavor: CakeFlavor): void {
   const { x, bottom, w } = box;
+  const look = LOOKS[flavor] ?? LOOKS.party;
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.beginPath();
@@ -67,6 +84,10 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
     ctx.beginPath();
     ctx.roundRect(cx - tw / 2, top, tw, th, tw * 0.05);
     ctx.fill();
+    for (let l = 1; l <= look.layers; l += 1) {
+      ctx.fillStyle = look.layerCream;
+      ctx.fillRect(cx - tw / 2, top + th * (0.3 + (0.7 * l) / (look.layers + 1)) - th * 0.035, tw, th * 0.07);
+    }
     ctx.fillStyle = cream;
     ctx.beginPath();
     ctx.moveTo(cx - tw / 2, top + th * 0.05);
@@ -79,15 +100,27 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
     ctx.lineTo(cx - tw / 2, top);
     ctx.closePath();
     ctx.fill();
-    for (let i = 0; i < 14; i += 1) {
-      ctx.fillStyle = PARTY[i % PARTY.length];
-      const sx = cx - tw * 0.42 + ((i * 37) % 100) / 100 * tw * 0.84;
-      const sy = top + th * (0.55 + ((i * 53) % 40) / 100);
-      ctx.fillRect(sx, sy, tw * 0.03, tw * 0.012);
+    if (look.decor === 'sprinkles') {
+      for (let i = 0; i < 14; i += 1) {
+        ctx.fillStyle = PARTY[i % PARTY.length];
+        const sx = cx - tw * 0.42 + ((i * 37) % 100) / 100 * tw * 0.84;
+        const sy = top + th * (0.55 + ((i * 53) % 40) / 100);
+        ctx.fillRect(sx, sy, tw * 0.03, tw * 0.012);
+      }
+    } else {
+      // Red velvet crumbs scattered on the white top.
+      for (let i = 0; i < 18; i += 1) {
+        ctx.fillStyle = i % 3 ? '#a3243a' : '#7a1424';
+        const sx = cx - tw * 0.44 + ((i * 41) % 100) / 100 * tw * 0.88;
+        const sy = top + th * (0.04 + ((i * 29) % 18) / 100);
+        ctx.beginPath();
+        ctx.arc(sx, sy, tw * (0.008 + ((i * 7) % 5) * 0.002), 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   };
-  tier(x, bottom - w * 0.42, w, w * 0.36, '#f8bbd0', '#ffffff');
-  tier(x, bottom - w * 0.62, w * 0.66, w * 0.22, '#e1bee7', '#fff3e0');
+  tier(x, bottom - w * 0.42, w, w * 0.36, look.bodies[0], look.creams[0]);
+  tier(x, bottom - w * 0.62, w * 0.66, w * 0.22, look.bodies[1], look.creams[1]);
   ctx.restore();
 }
 
@@ -95,6 +128,7 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
 export function blowCandles(params: Record<string, unknown>): Effect {
   // `digits: "25"` puts number candles on the cake instead of `candles` plain sticks.
   const digits = typeof params.digits === 'string' && params.digits.trim() ? [...params.digits.trim()].slice(0, 3) : null;
+  const flavor: CakeFlavor = params.cake === 'red-velvet' ? 'red-velvet' : 'party';
   const count = digits ? digits.length : Math.max(1, Math.min(12, Number(params.candles ?? 7)));
   // Blowing out one candle takes about as long overall as blowing out many, so a pair doesn't vanish instantly.
   const secondsPerCandle = Math.max(SECONDS_PER_CANDLE, 0.9 / count);
@@ -142,7 +176,7 @@ export function blowCandles(params: Record<string, unknown>): Effect {
     },
     draw(ctx, env) {
       const box = cakeBox(env);
-      drawCake(ctx, box);
+      drawCake(ctx, box, flavor);
       const tops = candleTops(box, count, !!digits);
       ctx.save();
       tops.forEach((c, i) => {
