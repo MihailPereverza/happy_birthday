@@ -63,6 +63,7 @@ export const t = {
     accepted: 'Чек принят!',
     acceptedDetails: (sum: number, date: string) => `${sum.toFixed(2).replace('.', ',')} ₽ · ${date.slice(8, 10)}.${date.slice(5, 7)} ${date.slice(11, 16)}`,
     next: 'Дальше ➜',
+    testSkip: 'Пропустить чек (тест)',
     wrongDate: (date: string) => `Этот чек не сегодняшний (${date.slice(8, 10)}.${date.slice(5, 7)}.${date.slice(0, 4)})`,
     sumLow: (min: number) => `Сумма в чеке маловата — нужно от ${min}\u00a0₽`,
     sumHigh: (max: number) => `Сумма в чеке великовата — нужно не больше ${max}\u00a0₽`,

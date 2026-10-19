@@ -1,6 +1,9 @@
 /** Normalizes a free-text answer: case, ё→е, punctuation and repeated whitespace do not matter. */
 export function normalizeAnswer(raw: string): string {
   return raw
+    // Macs and pasted text may send «й»/«ё» as a letter plus a combining mark; NFC glues them back together
+    // so the mark isn't stripped below as punctuation.
+    .normalize('NFC')
     .toLowerCase()
     .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')

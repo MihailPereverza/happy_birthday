@@ -2,6 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import type { ReceiptStep } from '../core/types';
 import { AnswerForm, Button, Hints, StepShell } from '../ui/components/common';
 import { QrScanner, qrScanSupported } from '../ui/components/QrScanner';
+import { testModeEnabled, useApp } from '../ui/appState';
 import { t } from '../ui/strings.ru';
 import { verifyReceipt, type Receipt as ParsedReceipt, type ReceiptVerdict } from './receiptCheck';
 import type { StepContext, StepDefinition } from './types';
@@ -20,6 +21,7 @@ function errorText(verdict: Extract<ReceiptVerdict, { ok: false }>, step: Receip
 }
 
 function Receipt({ step, ctx }: { step: ReceiptStep; ctx: StepContext }) {
+  const testMode = testModeEnabled(useApp());
   const supported = qrScanSupported();
   const [manual, setManual] = useState(!supported);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +84,11 @@ function Receipt({ step, ctx }: { step: ReceiptStep; ctx: StepContext }) {
           {!supported && <p class="muted">{t.receipt.unsupported}</p>}
           <AnswerForm placeholder={t.receipt.placeholder} onSubmit={check} />
         </>
+      )}
+      {testMode && (
+        <Button kind="secondary" onClick={() => ctx.onComplete({ test: true })}>
+          ⏭ {t.receipt.testSkip}
+        </Button>
       )}
       <Hints step={step} attempts={ctx.attempts} />
     </StepShell>

@@ -17,10 +17,18 @@ const cakeBox = ({ view, floorY }: EffectEnv): CakeBox => {
   return { x: view.x + view.w / 2, bottom: floorY - w * 0.04, w };
 };
 
+/** Where candles stand: the top tier of the party cake, or the flat top of the single red velvet cake. */
+function cakeTop(box: CakeBox, flavor: CakeFlavor): { topY: number; topW: number } {
+  if (flavor === 'red-velvet') {
+    const g = velvetGeometry(box);
+    return { topY: g.top + g.ry * 0.2, topW: g.width * 0.75 };
+  }
+  return { topY: box.bottom - box.w * 0.62, topW: box.w * 0.62 };
+}
+
 /** Number candles («2», «5») are tall and wide; plain ones are thin sticks. */
-function candleTops(box: CakeBox, count: number, digits: boolean) {
-  const topW = box.w * 0.62;
-  const topY = box.bottom - box.w * 0.62;
+function candleTops(box: CakeBox, count: number, digits: boolean, flavor: CakeFlavor) {
+  const { topY, topW } = cakeTop(box, flavor);
   const spread = digits ? 0.5 : 0.8;
   return Array.from({ length: count }, (_, i) => ({
     x: box.x - (topW * spread) / 2 + (count === 1 ? (topW * spread) / 2 : (topW * spread * i) / (count - 1)),
@@ -57,23 +65,13 @@ function digitCandle(ctx: CanvasRenderingContext2D, c: { x: number; base: number
 
 export type CakeFlavor = 'party' | 'red-velvet';
 
-interface CakeLook {
-  bodies: [string, string];
-  creams: [string, string];
-  /** Layers of cream visible in the sponge (red velvet is a layered cake). */
-  layers: number;
-  layerCream: string;
-  decor: 'sprinkles' | 'crumbs';
+function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox, flavor: CakeFlavor): void {
+  if (flavor === 'red-velvet') drawRedVelvet(ctx, box);
+  else drawPartyCake(ctx, box);
 }
 
-const LOOKS: Record<CakeFlavor, CakeLook> = {
-  party: { bodies: ['#f8bbd0', '#e1bee7'], creams: ['#ffffff', '#fff3e0'], layers: 0, layerCream: '', decor: 'sprinkles' },
-  'red-velvet': { bodies: ['#8e1b2c', '#9d2233'], creams: ['#fffaf2', '#fffaf2'], layers: 2, layerCream: '#fbf3e6', decor: 'crumbs' },
-};
-
-function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox, flavor: CakeFlavor): void {
+function drawPartyCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
   const { x, bottom, w } = box;
-  const look = LOOKS[flavor] ?? LOOKS.party;
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.beginPath();
@@ -84,10 +82,6 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox, flavor: CakeFlavo
     ctx.beginPath();
     ctx.roundRect(cx - tw / 2, top, tw, th, tw * 0.05);
     ctx.fill();
-    for (let l = 1; l <= look.layers; l += 1) {
-      ctx.fillStyle = look.layerCream;
-      ctx.fillRect(cx - tw / 2, top + th * (0.3 + (0.7 * l) / (look.layers + 1)) - th * 0.035, tw, th * 0.07);
-    }
     ctx.fillStyle = cream;
     ctx.beginPath();
     ctx.moveTo(cx - tw / 2, top + th * 0.05);
@@ -100,27 +94,131 @@ function drawCake(ctx: CanvasRenderingContext2D, box: CakeBox, flavor: CakeFlavo
     ctx.lineTo(cx - tw / 2, top);
     ctx.closePath();
     ctx.fill();
-    if (look.decor === 'sprinkles') {
-      for (let i = 0; i < 14; i += 1) {
-        ctx.fillStyle = PARTY[i % PARTY.length];
-        const sx = cx - tw * 0.42 + ((i * 37) % 100) / 100 * tw * 0.84;
-        const sy = top + th * (0.55 + ((i * 53) % 40) / 100);
-        ctx.fillRect(sx, sy, tw * 0.03, tw * 0.012);
-      }
-    } else {
-      // Red velvet crumbs scattered on the white top.
-      for (let i = 0; i < 18; i += 1) {
-        ctx.fillStyle = i % 3 ? '#a3243a' : '#7a1424';
-        const sx = cx - tw * 0.44 + ((i * 41) % 100) / 100 * tw * 0.88;
-        const sy = top + th * (0.04 + ((i * 29) % 18) / 100);
+    for (let i = 0; i < 14; i += 1) {
+      ctx.fillStyle = PARTY[i % PARTY.length];
+      const sx = cx - tw * 0.42 + ((i * 37) % 100) / 100 * tw * 0.84;
+      const sy = top + th * (0.55 + ((i * 53) % 40) / 100);
+      ctx.fillRect(sx, sy, tw * 0.03, tw * 0.012);
+    }
+  };
+  tier(x, bottom - w * 0.42, w, w * 0.36, '#f8bbd0', '#ffffff');
+  tier(x, bottom - w * 0.62, w * 0.66, w * 0.22, '#e1bee7', '#fff3e0');
+  ctx.restore();
+}
+
+interface VelvetGeometry {
+  cx: number;
+  width: number;
+  /** Half-height of the elliptical top/bottom edges (the cake is seen slightly from above). */
+  ry: number;
+  top: number;
+  bottom: number;
+}
+
+function velvetGeometry(box: CakeBox): VelvetGeometry {
+  const width = box.w * 0.92;
+  const bottom = box.bottom - box.w * 0.06;
+  return { cx: box.x, width, ry: width * 0.14, top: bottom - box.w * 0.46, bottom };
+}
+
+/** Deterministic pseudo-random so the crumb texture doesn't flicker between frames. */
+const hash01 = (n: number): number => {
+  const v = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+/**
+ * Red velvet: one tall round cake — three thick deep-red sponge layers with cream-cheese layers between,
+ * a smooth white top edged with red crumbs, on a white plate; side shading gives it volume.
+ */
+function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
+  const g = velvetGeometry(box);
+  const left = g.cx - g.width / 2;
+  const right = g.cx + g.width / 2;
+  const rx = g.width / 2;
+  ctx.save();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath();
+  ctx.ellipse(g.cx, g.bottom + g.ry * 0.55, rx * 1.18, g.ry * 1.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f7f7f7';
+  ctx.beginPath();
+  ctx.ellipse(g.cx, g.bottom + g.ry * 0.35, rx * 1.15, g.ry * 1.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const shade = (light: string, dark: string) => {
+    const grad = ctx.createLinearGradient(left, 0, right, 0);
+    grad.addColorStop(0, dark);
+    grad.addColorStop(0.35, light);
+    grad.addColorStop(0.6, light);
+    grad.addColorStop(1, dark);
+    return grad;
+  };
+  /** A slice of the cylinder between y1 (upper) and y2 (lower), with curved front edges. */
+  const band = (y1: number, y2: number, fill: CanvasGradient) => {
+    ctx.beginPath();
+    ctx.moveTo(left, y1);
+    ctx.lineTo(left, y2);
+    ctx.ellipse(g.cx, y2, rx, g.ry, 0, Math.PI, 0, true);
+    ctx.lineTo(right, y1);
+    ctx.ellipse(g.cx, y1, rx, g.ry, 0, 0, Math.PI, false);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+
+  const sponge = shade('#b3203a', '#6e0c1d');
+  const cream = shade('#fffaf2', '#e3d6c6');
+  const h = g.bottom - g.top;
+  // Bottom → top: sponge, cream, sponge, cream, sponge, then the frosted top layer.
+  const layers: [number, CanvasGradient, boolean][] = [
+    [0.25, sponge, true],
+    [0.11, cream, false],
+    [0.24, sponge, true],
+    [0.11, cream, false],
+    [0.21, sponge, true],
+    [0.08, cream, false],
+  ];
+  let y = g.bottom;
+  layers.forEach(([part, fill, isSponge], li) => {
+    const y1 = y - h * part;
+    band(y1, y, fill);
+    if (isSponge) {
+      // Crumb texture: darker pores and lighter specks along the visible front of the sponge.
+      for (let k = 0; k < 70; k += 1) {
+        const u = hash01(li * 1000 + k);
+        const v = hash01(li * 1000 + k + 500);
+        const px = left + g.width * (0.04 + 0.92 * u);
+        const curve = g.ry * Math.sqrt(Math.max(0, 1 - ((px - g.cx) / rx) ** 2));
+        const py = y1 + curve + (y - y1) * (0.15 + 0.7 * v);
+        ctx.fillStyle = k % 3 ? 'rgba(70,0,12,0.35)' : 'rgba(255,170,170,0.25)';
         ctx.beginPath();
-        ctx.arc(sx, sy, tw * (0.008 + ((i * 7) % 5) * 0.002), 0, Math.PI * 2);
+        ctx.arc(px, py, g.width * (0.004 + 0.004 * hash01(k + li)), 0, Math.PI * 2);
         ctx.fill();
       }
     }
-  };
-  tier(x, bottom - w * 0.42, w, w * 0.36, look.bodies[0], look.creams[0]);
-  tier(x, bottom - w * 0.62, w * 0.66, w * 0.22, look.bodies[1], look.creams[1]);
+    y = y1;
+  });
+
+  ctx.beginPath();
+  ctx.ellipse(g.cx, y, rx, g.ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#fffaf3';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(200,185,170,0.6)';
+  ctx.lineWidth = g.width * 0.004;
+  ctx.stroke();
+  // Classic decoration: a ring of red velvet crumbs around the top edge.
+  for (let k = 0; k < 90; k += 1) {
+    const a = (k / 90) * Math.PI * 2 + hash01(k) * 0.05;
+    const r = 0.86 + 0.12 * hash01(k + 77);
+    const px = g.cx + Math.cos(a) * rx * r;
+    const py = y + Math.sin(a) * g.ry * r;
+    ctx.fillStyle = k % 4 ? '#a3243a' : '#6e0c1d';
+    ctx.beginPath();
+    ctx.arc(px, py, g.width * (0.006 + 0.006 * hash01(k + 13)), 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -144,7 +242,7 @@ export function blowCandles(params: Record<string, unknown>): Effect {
     update(env, dt) {
       t = env.t;
       const box = cakeBox(env);
-      const tops = candleTops(box, count, !!digits);
+      const tops = candleTops(box, count, !!digits, flavor);
       const blowNow = env.faces.some((f) => f.pucker > BLOW_THRESHOLD || f.jawOpen > 0.55);
       blowing += ((blowNow ? 1 : 0) - blowing) * Math.min(1, dt * 8);
       if (blowNow && lit.some(Boolean)) {
@@ -177,7 +275,7 @@ export function blowCandles(params: Record<string, unknown>): Effect {
     draw(ctx, env) {
       const box = cakeBox(env);
       drawCake(ctx, box, flavor);
-      const tops = candleTops(box, count, !!digits);
+      const tops = candleTops(box, count, !!digits, flavor);
       ctx.save();
       tops.forEach((c, i) => {
         if (digits) digitCandle(ctx, c, digits[i], PARTY[i % 5]);

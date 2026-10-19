@@ -5,6 +5,11 @@ import { checkMasterCode } from '../src/admin/masterCode';
 const settings = async () => ({ masterCodeHash: await hashAnswer('магия'), adminPinHash: await hashAnswer('1234') });
 
 describe('normalizeAnswer', () => {
+  it('treats decomposed й and ё (letter + combining mark) like the usual letters', () => {
+    expect(normalizeAnswer('Таврически\u0438\u0306')).toBe('таврический');
+    expect(normalizeAnswer('Е\u0308лка')).toBe('елка');
+  });
+
   it('ignores case, ё/е, punctuation and extra spaces', () => {
     expect(normalizeAnswer('  Ёлка,   ПРИВЕТ!! ')).toBe('елка привет');
   });
