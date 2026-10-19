@@ -21,7 +21,7 @@ const cakeBox = ({ view, floorY }: EffectEnv): CakeBox => {
 function cakeTop(box: CakeBox, flavor: CakeFlavor): { topY: number; topW: number } {
   if (flavor === 'red-velvet') {
     const g = velvetGeometry(box);
-    return { topY: g.top + g.ry * 0.2, topW: g.width * 0.75 };
+    return { topY: g.top + g.ry * 0.15, topW: g.width * 0.7 };
   }
   return { topY: box.bottom - box.w * 0.62, topW: box.w * 0.62 };
 }
@@ -109,7 +109,7 @@ function drawPartyCake(ctx: CanvasRenderingContext2D, box: CakeBox): void {
 interface VelvetGeometry {
   cx: number;
   width: number;
-  /** Half-height of the elliptical top/bottom edges (the cake is seen slightly from above). */
+  /** Half of the on-screen depth of the heart seen slightly from above (also sizes the plate). */
   ry: number;
   top: number;
   bottom: number;
@@ -118,7 +118,7 @@ interface VelvetGeometry {
 function velvetGeometry(box: CakeBox): VelvetGeometry {
   const width = box.w * 0.92;
   const bottom = box.bottom - box.w * 0.06;
-  return { cx: box.x, width, ry: width * 0.14, top: bottom - box.w * 0.46, bottom };
+  return { cx: box.x, width, ry: width * 0.2, top: bottom - box.w * 0.4, bottom };
 }
 
 /** Deterministic pseudo-random so the crumb texture doesn't flicker between frames. */
@@ -127,24 +127,58 @@ const hash01 = (n: number): number => {
   return v - Math.floor(v);
 };
 
+interface Pt2 {
+  x: number;
+  y: number;
+}
+
+const HEART_SAMPLES = 96;
+
 /**
- * Red velvet: one tall round cake — three thick deep-red sponge layers with cream-cheese layers between,
- * a smooth white top edged with red crumbs, on a white plate; side shading gives it volume.
+ * Outline of the heart-shaped cake as seen from slightly above, centred at (0, 0): the dip points to the
+ * back of the table, the tip to the viewer. Raw curve spans x ∈ [-16, 16], y ∈ [-12, 17].
+ */
+function heartFace(g: VelvetGeometry): Pt2[] {
+  const sx = g.width / 32;
+  const sy = (g.ry * 2) / 29;
+  return Array.from({ length: HEART_SAMPLES }, (_, i) => {
+    const t = (i / HEART_SAMPLES) * Math.PI * 2;
+    const x = 16 * Math.sin(t) ** 3;
+    const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+    return { x: x * sx, y: (y - 2.5) * sy };
+  });
+}
+
+/** The part of the outline facing the viewer: from the rightmost point through the tip to the leftmost one. */
+function frontChain(face: Pt2[]): Pt2[] {
+  let iR = 0;
+  let iL = 0;
+  face.forEach((p, i) => {
+    if (p.x > face[iR].x) iR = i;
+    if (p.x < face[iL].x) iL = i;
+  });
+  return face.slice(iR, iL + 1);
+}
+
+/**
+ * Red velvet heart: a heart-shaped layered cake — three deep-red crumbly sponge layers with cream-cheese
+ * layers between, a white heart top edged with red crumbs, on a plate; side shading gives it volume.
  */
 function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
   const g = velvetGeometry(box);
+  const face = heartFace(g);
+  const chain = frontChain(face);
   const left = g.cx - g.width / 2;
   const right = g.cx + g.width / 2;
-  const rx = g.width / 2;
   ctx.save();
 
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.beginPath();
-  ctx.ellipse(g.cx, g.bottom + g.ry * 0.55, rx * 1.18, g.ry * 1.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(g.cx, g.bottom + g.ry * 0.5, g.width * 0.62, g.ry * 1.25, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#f7f7f7';
   ctx.beginPath();
-  ctx.ellipse(g.cx, g.bottom + g.ry * 0.35, rx * 1.15, g.ry * 1.05, 0, 0, Math.PI * 2);
+  ctx.ellipse(g.cx, g.bottom + g.ry * 0.3, g.width * 0.6, g.ry * 1.2, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const shade = (light: string, dark: string) => {
@@ -155,14 +189,11 @@ function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
     grad.addColorStop(1, dark);
     return grad;
   };
-  /** A slice of the cylinder between y1 (upper) and y2 (lower), with curved front edges. */
+  /** Visible side of the cake between levels y1 (upper) and y2 (lower). */
   const band = (y1: number, y2: number, fill: CanvasGradient) => {
     ctx.beginPath();
-    ctx.moveTo(left, y1);
-    ctx.lineTo(left, y2);
-    ctx.ellipse(g.cx, y2, rx, g.ry, 0, Math.PI, 0, true);
-    ctx.lineTo(right, y1);
-    ctx.ellipse(g.cx, y1, rx, g.ry, 0, 0, Math.PI, false);
+    chain.forEach((p, i) => (i ? ctx.lineTo(g.cx + p.x, y2 + p.y) : ctx.moveTo(g.cx + p.x, y2 + p.y)));
+    for (let i = chain.length - 1; i >= 0; i -= 1) ctx.lineTo(g.cx + chain[i].x, y1 + chain[i].y);
     ctx.closePath();
     ctx.fillStyle = fill;
     ctx.fill();
@@ -171,7 +202,6 @@ function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
   const sponge = shade('#b3203a', '#6e0c1d');
   const cream = shade('#fffaf2', '#e3d6c6');
   const h = g.bottom - g.top;
-  // Bottom → top: sponge, cream, sponge, cream, sponge, then the frosted top layer.
   const layers: [number, CanvasGradient, boolean][] = [
     [0.25, sponge, true],
     [0.11, cream, false],
@@ -185,16 +215,12 @@ function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
     const y1 = y - h * part;
     band(y1, y, fill);
     if (isSponge) {
-      // Crumb texture: darker pores and lighter specks along the visible front of the sponge.
       for (let k = 0; k < 70; k += 1) {
-        const u = hash01(li * 1000 + k);
-        const v = hash01(li * 1000 + k + 500);
-        const px = left + g.width * (0.04 + 0.92 * u);
-        const curve = g.ry * Math.sqrt(Math.max(0, 1 - ((px - g.cx) / rx) ** 2));
-        const py = y1 + curve + (y - y1) * (0.15 + 0.7 * v);
+        const p = chain[Math.floor(hash01(li * 1000 + k) * chain.length)];
+        const py = y1 + p.y + (y - y1) * (0.15 + 0.7 * hash01(li * 1000 + k + 500));
         ctx.fillStyle = k % 3 ? 'rgba(70,0,12,0.35)' : 'rgba(255,170,170,0.25)';
         ctx.beginPath();
-        ctx.arc(px, py, g.width * (0.004 + 0.004 * hash01(k + li)), 0, Math.PI * 2);
+        ctx.arc(g.cx + p.x, py, g.width * (0.004 + 0.004 * hash01(k + li)), 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -202,21 +228,20 @@ function drawRedVelvet(ctx: CanvasRenderingContext2D, box: CakeBox): void {
   });
 
   ctx.beginPath();
-  ctx.ellipse(g.cx, y, rx, g.ry, 0, 0, Math.PI * 2);
+  face.forEach((p, i) => (i ? ctx.lineTo(g.cx + p.x, y + p.y) : ctx.moveTo(g.cx + p.x, y + p.y)));
+  ctx.closePath();
   ctx.fillStyle = '#fffaf3';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(200,185,170,0.6)';
+  ctx.strokeStyle = 'rgba(200,185,170,0.7)';
   ctx.lineWidth = g.width * 0.004;
   ctx.stroke();
-  // Classic decoration: a ring of red velvet crumbs around the top edge.
-  for (let k = 0; k < 90; k += 1) {
-    const a = (k / 90) * Math.PI * 2 + hash01(k) * 0.05;
-    const r = 0.86 + 0.12 * hash01(k + 77);
-    const px = g.cx + Math.cos(a) * rx * r;
-    const py = y + Math.sin(a) * g.ry * r;
+  // Classic decoration: red velvet crumbs along the edge of the heart.
+  for (let k = 0; k < 110; k += 1) {
+    const p = face[Math.floor(hash01(k) * face.length)];
+    const inset = 0.84 + 0.12 * hash01(k + 77);
     ctx.fillStyle = k % 4 ? '#a3243a' : '#6e0c1d';
     ctx.beginPath();
-    ctx.arc(px, py, g.width * (0.006 + 0.006 * hash01(k + 13)), 0, Math.PI * 2);
+    ctx.arc(g.cx + p.x * inset, y + p.y * inset, g.width * (0.006 + 0.006 * hash01(k + 13)), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
