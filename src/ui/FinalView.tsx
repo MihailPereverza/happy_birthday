@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { mainPhotoByPoint } from '../photos/repository';
 import { FinalAnimation } from '../progress/finalAnimation';
+import { HeartCollage } from '../progress/heartCollage';
 import { useApp } from './appState';
 import { Button } from './components/common';
 import { RewardStrip } from './components/RewardStrip';
@@ -36,7 +37,11 @@ export function FinalView(props: { title?: string; text?: string }) {
         </button>
       )}
       <h1 class="final-title">{props.title ?? quest.final.title}</h1>
-      <FinalAnimation points={app.engine.points} mainPhotos={mainPhotos} runId={runId} />
+      {quest.final.layout === 'heart' ? (
+        <HeartCollage photos={app.photos} runId={runId} centerText={quest.final.centerText} />
+      ) : (
+        <FinalAnimation points={app.engine.points} mainPhotos={mainPhotos} runId={runId} />
+      )}
       {image && <img class="step-image" src={image} alt="" />}
       <p class="final-text">{props.text ?? quest.final.text}</p>
       <RewardStrip quest={app.engine.quest} progress={app.engine.state} variant="card" />

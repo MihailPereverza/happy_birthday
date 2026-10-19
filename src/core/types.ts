@@ -139,7 +139,15 @@ export interface Quest {
   settings: QuestSettings;
   masks: Mask[];
   points: Point[];
-  final: { title: string; text: string; image?: string };
+  final: {
+    title: string;
+    text: string;
+    image?: string;
+    /** `heart`: the day's photos form a heart collage; `map` (default): points along the real route outline. */
+    layout?: 'map' | 'heart';
+    /** Big text in the middle of the heart, e.g. the age. */
+    centerText?: string;
+  };
 }
 
 export type SkippedBy = 'master' | 'code' | 'gesture';

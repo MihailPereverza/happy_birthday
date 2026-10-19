@@ -377,3 +377,8 @@ body.camera-open .tabbar, body.camera-open .header { visibility: hidden; }
 }
 .step-clue b { display: block; font-size: 15px; margin-bottom: 4px; }
 .step-clue p { margin: 0; font-size: 19px; font-weight: 800; white-space: pre-line; }
+
+.heart-line { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s ease-in-out forwards; }
+.heart-photo { animation: pop 0.45s cubic-bezier(.2,1.6,.4,1); transform-box: fill-box; transform-origin: center; }
+.heart-center { font-family: 'Lobster', cursive; font-size: 96px; fill: var(--accent); opacity: .9; }
+.heart-collage.complete .outline { animation: beat 1.2s ease-in-out 3; }

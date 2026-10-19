@@ -26,7 +26,9 @@
       "properties": {
         "title": { "type": "string" },
         "text": { "type": "string" },
-        "image": { "type": "string" }
+        "image": { "type": "string" },
+        "layout": { "enum": ["map", "heart"] },
+        "centerText": { "type": "string" }
       }
     }
   },
